@@ -4,8 +4,7 @@ import numpy as np
 from environment import CustomStocksEnv  # Importa l'ambiente personalizzato per il trading
 from agent import QLearningAgent  # Importa l'agente Q-Learning
 # from utils import make_state_hashable  # Non necessario nel main script
-import test_dati
-
+import utils as u
 
 ###MODIFICARE, UTILIZZARE MODULO DI MATTIA PER IL DATASET
 
@@ -20,7 +19,7 @@ end_date = "2023-12-30"
 data.reset_index(drop=True, inplace=True)'''
 
 ###MODIFICARE, UTILIZZARE MODULO DI MATTIA PER IL DATASET
-data = test_dati.cleaning(test_dati.download(asset, start_date, end_date))
+data = u.cleaning(u.download(asset, start_date, end_date))
 
 
 # Crea l'ambiente Gym-anytrading con la classe personalizzata
