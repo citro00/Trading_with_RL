@@ -1,5 +1,4 @@
 import numpy as np
-
 def make_state_hashable(state):
     """
     Converte lo stato in una tupla di float per renderlo hashable.

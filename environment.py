@@ -43,7 +43,9 @@ class CustomStocksEnv(StocksEnv):
         reward = 0.0
 
         # Azione dell'agente
+        
         if action == 1:  # Acquisto di azioni
+            
             if self.cash >= current_price:
                 num_shares_to_buy = self.cash // current_price
                 self.shares += num_shares_to_buy
@@ -52,7 +54,7 @@ class CustomStocksEnv(StocksEnv):
                 # Piccolo reward per l'acquisto
                 reward += 0.05
 
-        elif action == 2:  # Vendita di azioni
+        elif action == 0:  # Vendita di azioni
             if self.shares > 0:
                 potential_cash = self.shares * current_price
                 # Verifica se il valore delle azioni è maggiore dell'investimento iniziale per garantire un profitto
@@ -66,10 +68,10 @@ class CustomStocksEnv(StocksEnv):
                 else:
                     # Penalizza leggermente se vende a un prezzo più basso del prezzo di acquisto medio
                     reward -= 0.1
-
+        
         else:  # Attendere
-            reward -= 0.1  # Penalizza l'attesa per spingere a prendere una decisione
-
+            reward -= 0.1  # Penalizza l'attesa per spingere a prendere una decisione 
+       
         # Penalizza l'agente per mantenere le azioni senza venderle
         if self.shares > 0 and action != 2:  # Se possiede azioni e non vende
             reward -= 0.05  # Penalità per non vendere

@@ -2,7 +2,7 @@ import yfinance as yf
 import gymnasium as gym
 import gym_anytrading
 from gym_anytrading import datasets
-
+import pandas
 #Scarica i dati storici relativi all'asset passato come parametro, nel range temporale tra start_date e end_date
 def download(asset, start_date, end_date):
     try:
@@ -17,9 +17,9 @@ def download(asset, start_date, end_date):
         print(f"Errorre durante il download dei dati: {e}")
     return data
 
-def cleaning(data):
+def cleaning(data: pandas.DataFrame):
     #Trasforma il DataFrame da MultiLevelInde in plain DataFrame
-    data = data.stack(level=1, future_stack=True).rename_axis().reset_index(level=1)
+    data = data.stack(level=1).rename_axis().reset_index(level=1)
     #Rimuovi nome colonne
     data.columns.name = None
     #Droppa colonna con nome ticker (inutile)

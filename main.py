@@ -24,7 +24,7 @@ data = test_dati.cleaning(test_dati.download(asset, start_date, end_date))
 
 
 # Crea l'ambiente Gym-anytrading con la classe personalizzata
-env = CustomStocksEnv(df=data, window_size=10, frame_bound=(10, len(data)), render_fps=1)
+env = CustomStocksEnv(df=data, window_size=10, frame_bound=(30, len(data)-2), render_fps=1)
 
 # Inizializza l'agente Q-Learning
 state_size = env.observation_space.shape[0]
