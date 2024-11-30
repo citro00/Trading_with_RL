@@ -56,9 +56,9 @@ fig = go.Figure()
 # Candlestick trace
 fig.add_trace(go.Candlestick(x=data.index,
                              open=data['Open'],
-                             high=data.loc['High'],
-                             low=data.loc['Low'],
-                             close=data.loc['Close']))
+                             high=data['High'],
+                             low=data['Low'],
+                             close=data['Close']))
 
 # Buy signals trace
 fig.add_trace(go.Scatter(x=[data.index[i] for i in states_buy],
