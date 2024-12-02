@@ -76,7 +76,7 @@ def download(asset, start_date, end_date):
 
 def cleaning(data:pd.DataFrame):
     #Trasforma il DataFrame da MultiLevelInde in plain DataFrame
-    data = data.stack(level=1).rename_axis().reset_index(level=1)
+    data = data.stack(level=1, future_stack=True).rename_axis().reset_index(level=1)
     #Rimuovi nome colonne
     data.columns.name = None
     #Droppa colonna con nome ticker (inutile)

@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import gymnasium as gym
+import gym_anytrading as gymany
 #  train: 
 class Agent:
     def __init__(self, state_size, window_size, trend, skip, batch_size, device):
@@ -181,22 +182,30 @@ class Agent:
                 print('epoch: %d, total rewards: %f.3, cost: %f, total money: %f' % (i + 1, total_profit, cost, starting_money))
 
     def new_train(self, iterations, checkpoint, budget, env: gym.Env):
+
+        print("#######################################################")
+        print(f"Start agent training over {iterations} iterations")
+        
         for i in range(iterations):
-            total_profit = 0
+            print(f"Training iteration number: {i}")
+            
+            '''total_profit e inventory devono essere gestiti dall'ambiente'''
+            total_profit = 0 
             inventory = []
 
             # Reset dell'ambiente e gestione dell'osservazione iniziale
-            observation, info = env.reset(seed=None)  # Puoi rimuovere seed se non necessario
-            state_formatted = ut.state_formatter(observation)
+            observation, info = env.reset(seed=None)
+            state = ut.state_formatter(observation)
             starting_money = budget
             done = False
-            current_tick = 0  # Inizializza il tick corrente
+            time_step = 0  # Inizializza il tick corrente
 
-            print(f"Training iteration: {i+1}/{iterations}")
+            #print(f"Training iteration: {i+1}/{iterations}")
 
+            print(f"_current_tick: {env.unwrapped._current_tick}")
             while not done:
                 # L'azione viene scelta in base allo stato corrente
-                action = self.act(state_formatted)
+                action = self.act(state)
         
                 # Mappa le azioni dell'agente alle azioni dell'ambiente
                 if action == 1:
@@ -205,20 +214,20 @@ class Agent:
                     env_action = 0  # Vendi
                 else:
                     env_action = 1  # Azione predefinita (Compra)
-
+                
                 # Esegui l'azione nell'ambiente
                 observation, env_reward, terminated, truncated, info = env.step(env_action)
                 done = terminated or truncated
-                current_tick += 1  # Incrementa il tick corrente
+                time_step += 1  # Incrementa il tick corrente
 
                 # Ottieni il prezzo attuale dalla tendenza
-                if current_tick < len(self.trend):
-                    actual_price = self.trend[current_tick]
+                if time_step < len(self.trend):
+                    actual_price = self.trend[time_step]
                 else:
                     actual_price = self.trend[-1]
 
                 # Logica di compravendita basata sull'azione scelta
-                if action == 1 and starting_money >= actual_price and current_tick < (len(self.trend) - self.half_window):
+                if action == 1 and starting_money >= actual_price and time_step < (len(self.trend) - self.half_window):
                     inventory.append(actual_price)
                     starting_money -= actual_price
                 elif action == 2 and len(inventory) > 0:
@@ -230,22 +239,18 @@ class Agent:
                 step_reward = float(env_reward)
 
                 # Format dell'osservazione successiva
-                observation_formatted = ut.state_formatter(observation)
+                new_state = ut.state_formatter(observation)
 
                 # Aggiungi l'esperienza alla memoria
-                self.memory.append((state_formatted, action, step_reward, observation_formatted, starting_money < budget))
-                state = observation_formatted
+                self.memory.append((state, action, step_reward, new_state, starting_money < budget))
+                state = new_state
 
                 # Esegui il replay se ci sono abbastanza esperienze
                 batch_size = min(self.batch_size, len(self.memory))
                 if batch_size > 0:
-                    try:
-                        loss = self.replay(batch_size)
-                    except Exception as e:
-                        print(f"Errore durante il replay: {e}")
-                        print(f"Observation_formatted: {observation_formatted}")
-                        print(f"Observation: {observation}")
-                        break
-
+                    loss = self.replay(batch_size)
+            
+            print(f"_current_tick (after training): {env.unwrapped._current_tick}")
+            print(f"Len of ds: {len(self.trend)}")
             if (i + 1) % checkpoint == 0:
                 print(f'Epoch: {i + 1}, Total Profit: {total_profit:.3f}, Loss: {loss:.6f}, Total Money: {starting_money:.2f}')
