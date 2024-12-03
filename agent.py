@@ -1,199 +1,193 @@
-import utils as ut
 import random
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import gymnasium as gym
+from collections import deque
+import utils as ut
 
- 
 class Agent:
-    def __init__(self, state_size, window_size, trend, skip, batch_size, device):
+    def __init__(self, state_size, action_size, batch_size, device):
+        # Inizializza la dimensione dello stato e delle azioni
         self.state_size = state_size
-        self.window_size = window_size
-        self.half_window = window_size // 2
-        self.trend = trend
-        self.skip = skip
-        self.action_size = 3
+        self.action_size = action_size
         self.batch_size = batch_size
-        self.memory = []
-        self.inventory = []
+        self.memory = deque(maxlen=10000)  # Memoria per esperienze passate, con capacità massima di 50.000 elementi
         self.device = device
 
-        self.gamma = 0.95
-        self.epsilon = 0.5
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.999
+        # Parametri di apprendimento per la rete neurale
+        self.gamma = 0.95  # Fattore di sconto per il valore delle ricompense future (0 < gamma < 1)
+        self.epsilon = 1.0  # Probabilità iniziale di esplorazione (tasso di esplorazione)
+        self.epsilon_min = 0.01  # Probabilità minima di esplorazione
+        self.epsilon_decay = 0.5  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
 
+        # Definizione del modello di rete neurale (Q-Network) che rappresenta la policy dell'agente
         self.model = nn.Sequential(
+            nn.Linear(self.state_size, 256),  # Layer denso che mappa dallo stato a 256 neuroni
+            nn.ReLU(),  # Funzione di attivazione non lineare ReLU
+            nn.Linear(256, self.action_size)  # Layer finale che restituisce i valori Q per ogni azione
+        ).to(self.device)
+
+        # Modello target: utilizzato per la stabilità del processo di apprendimento
+        self.target_model = nn.Sequential(
             nn.Linear(self.state_size, 256),
             nn.ReLU(),
             nn.Linear(256, self.action_size)
         ).to(self.device)
+        self.target_model.load_state_dict(self.model.state_dict())  # Inizializza il modello target con i pesi del modello principale
+        self.target_model.eval()  # Il modello target viene usato solo per valutazione, non per addestramento
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=1e-5)
-        self.loss_fn = nn.MSELoss()
+        # Definizione dell'ottimizzatore e della funzione di perdita
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=1e-3)  # Ottimizzatore AdamW per aggiornare i pesi della rete
+        self.loss_fn = nn.SmoothL1Loss()  # Funzione di perdita Huber Loss, utile per gestire outliers nelle ricompense 
+
+        # Inizializzazione dei pesi della rete neurale
+        self.model.apply(self.init_weights)
+        self.target_model.apply(self.init_weights)
+
+    def init_weights(self, m):
+        """
+        Inizializza i pesi della rete neurale utilizzando la strategia di He.
+        """
+        if isinstance(m, nn.Linear):
+            nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')  # Inizializza i pesi in base alla strategia di He
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)  # Inizializza i bias a 0
 
     def act(self, state):
-        if random.random() <= self.epsilon:
-            return random.randrange(self.action_size)
+        """
+        Decide un'azione basata sullo stato attuale.
+        """
+        # Converti lo stato in un tensor di PyTorch
         state = torch.tensor(state, dtype=torch.float32).to(self.device)
-        return self.model(state).argmax().item()
+        with torch.no_grad():
+            q_values = self.model(state)  # Ottieni i valori Q per tutte le azioni
+        # Usa softmax per generare una distribuzione di probabilità tra le azioni
+        probabilities = torch.softmax(q_values, dim=0).cpu().numpy()
+        return np.random.choice(self.action_size, p=probabilities)  # Seleziona un'azione in base alla distribuzione
 
-    def replay(self, batch_size):
-        mini_batch = random.sample(self.memory, batch_size)
-        states = np.array([a[0][0] for a in mini_batch])
-        new_states = np.array([a[3][0] for a in mini_batch])
-        states = torch.tensor(states, dtype=torch.float32).to(self.device)
-        new_states = torch.tensor(new_states, dtype=torch.float32).to(self.device)
-        
-        Q = self.model(states)
-        Q_new = self.model(new_states)
-        
-        X = states
-        y = Q.clone().detach()
+    def remember(self, state, action, reward, next_state, done):
+        """
+        Memorizza un'esperienza nella memoria.
+        """
+        # Aggiungi lo stato attuale, l'azione presa, la ricompensa ricevuta, il prossimo stato e l'indicatore se è stato finale
+        self.memory.append((state, action, reward, next_state, done))
 
-        for i in range(len(mini_batch)):
-            state, action, reward, next_state, done = mini_batch[i]
-            target = reward
-            if not done:
-                target += self.gamma * torch.max(Q_new[i])
-            y[i][action] = target
+    def replay(self):
+        """
+        Addestra la rete neurale utilizzando un batch di esperienze passate.
+        Restituisce il valore della loss.
+        """
+        # Controlla se ci sono abbastanza esperienze nella memoria per un batch completo
+        if len(self.memory) < self.batch_size:
+            return None
 
-        loss = self.loss_fn(Q, y)
+        # Preleva un minibatch casuale dalla memoria
+        minibatch = random.sample(self.memory, self.batch_size)
+        states, actions, rewards, next_states, dones = zip(*minibatch)
+
+        # Converti tutti i dati del batch in tensor di PyTorch
+        states = torch.tensor(np.array(states), dtype=torch.float32).to(self.device)
+        actions = torch.tensor(actions, dtype=torch.long).unsqueeze(1).to(self.device)
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+        next_states = torch.tensor(np.array(next_states), dtype=torch.float32).to(self.device)
+        dones = torch.tensor(dones, dtype=torch.bool).to(self.device)
+
+        # Calcola i valori Q attuali per le azioni selezionate nel batch
+        current_q = self.model(states).gather(1, actions).squeeze()
+
+        # Calcola i valori Q futuri utilizzando il modello target
+        with torch.no_grad():
+            max_next_q = self.target_model(next_states).max(1)[0]
+
+        # Calcola i target Q: reward attuale + gamma * valore futuro (se non terminale)
+        target_q = rewards + (self.gamma * max_next_q * (~dones))
+
+        # Calcola la perdita (Huber Loss tra i valori Q attuali e quelli target)
+        loss = self.loss_fn(current_q, target_q)
+
+        # Backpropagation per aggiornare i pesi della rete
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
+        # Aggiorna il modello target ogni 10 batch per stabilizzare l'apprendimento
+        if len(self.memory) % 10 == 0:
+            self.target_model.load_state_dict(self.model.state_dict())
+
+        # Riduci il tasso di esplorazione (epsilon) per favorire l'uso delle azioni apprese
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
         return loss.item()
 
+    def train_agent(self, env, episodes):
+        """
+        Addestra l'agente interagendo con l'ambiente.
+        """
+        print(f"Inizio addestramento per {episodes} episodi.")
+        for episode in range(1, episodes + 1):
+            # Resetta l'ambiente all'inizio di ogni episodio
+            state, info = env.reset()
+            state = ut.state_formatter(state)
+            done = False
+            total_profit = 0
+            total_loss = 0
+            loss_count = 0
 
-    def buy(self, initial_money):
-        starting_money = initial_money
-        states_sell = []
+            # Ciclo fino a che l'episodio non termina
+            while not done:
+                action = self.act(state)  # L'agente decide un'azione
+                # Esegui l'azione nell'ambiente
+                next_state, reward, terminated, truncated, info = env.step(action)
+                done = terminated or truncated
+                next_state = ut.state_formatter(next_state)
+
+                # Salva l'esperienza nella memoria
+                self.remember(state, action, reward, next_state, done)
+                state = next_state
+                total_profit += reward
+
+                # Addestra la rete con l'esperienza memorizzata
+                loss = self.replay()
+                if loss is not None:
+                    total_loss += loss
+                    loss_count += 1
+
+            # Calcola e stampa la perdita media dell'episodio
+            average_loss = total_loss / loss_count if loss_count > 0 else 0
+            print(f"Episode {episode}/{episodes} - Total Profit: {total_profit:.2f} - Loss: {average_loss:.4f} - Epsilon: {self.epsilon:.4f}")
+
+        print("Addestramento completato.")
+
+    def evaluate_agent(self, env): #todo implemetn
+        """
+        Valuta l'agente eseguendo un episodio di trading.
+        """
+        self.epsilon = 0  # Disattiva esplorazione durante la valutazione
+        state, info = env.reset()
+        state = ut.state_formatter(state)
+        done = False
         states_buy = []
-        inventory = []
-        state = self.get_state(0)
+        states_sell = []
+        total_profit = 0
 
-        for t in range(0, len(self.trend) - 1, self.skip):
-            action = self.act(state)
-            next_state = self.get_state(t + 1)
+        # Ciclo fino a che l'episodio di valutazione non termina
+        while not done:
+            action = self.act(state)  # L'agente decide un'azione
+            next_state, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
+            next_state = ut.state_formatter(next_state)
 
-            if action == 1 and initial_money >= self.trend[t] and t < (len(self.trend) - self.half_window):
-                inventory.append(self.trend[t])
-                initial_money -= self.trend[t]
-                states_buy.append(t)
-                print('day %d: buy 1 unit at price %f, total balance %f' % (t, self.trend[t], initial_money))
-
-            elif action == 2 and len(inventory):
-                bought_price = inventory.pop(0)
-                initial_money += self.trend[t]
-                states_sell.append(t)
-                try:
-                    invest = ((self.trend[t] - bought_price) / bought_price) * 100
-                except:
-                    invest = 0
-                print('day %d, sell 1 unit at price %f, investment %f %%, total balance %f' % (t, self.trend[t], invest, initial_money))
+            # Salva i tick di acquisto o vendita
+            if action == 1:
+                states_buy.append(env.get_current_tick())
+            elif action == 2:
+                states_sell.append(env.get_current_tick())
 
             state = next_state
+            total_profit += reward
 
-        shares_held = len(inventory)
-        if shares_held > 0:
-            current_price = self.trend[-1]
-            equity_value = shares_held * current_price
-            total_gains = initial_money + equity_value - starting_money
-            invest = ((initial_money + equity_value - starting_money) / starting_money) * 100
-        else:
-            total_gains = initial_money - starting_money
-            invest = ((initial_money - starting_money) / starting_money) * 100
-
-        print(inventory)
-        return states_buy, states_sell, total_gains, invest, shares_held
-
-
-    def train(self, iterations, checkpoint, budget, env: gym.Env):
-
-        print("#######################################################")
-        print(f"Start agent training over {iterations} iterations")
-        
-        for i in range(iterations):
-            print(f"Training iteration number: {i}")
-            
-            '''total_profit e inventory devono essere gestiti dall'ambiente'''
-            total_profit = 0 
-            inventory = []
-
-            # Reset dell'ambiente e gestione dell'osservazione iniziale
-            observation, info = env.reset(seed=None)
-            state = ut.state_formatter(observation)
-            starting_money = budget
-            done = False
-            time_step = 0  # Inizializza il tick corrente
-
-            #print(f"Training iteration: {i+1}/{iterations}")
-
-            print(f"_current_tick: {env.unwrapped._current_tick}")
-            while not done:
-                # L'azione viene scelta in base allo stato corrente
-                action = self.act(state)
-        
-                # Mappa le azioni dell'agente alle azioni dell'ambiente
-                if action == 1:
-                    env_action = 1  # Compra
-                elif action == 2:
-                    env_action = 0  # Vendi
-                else:
-                    env_action = 1  # Azione predefinita (Compra)
-                
-                # Esegui l'azione nell'ambiente
-                observation, env_reward, terminated, truncated, info = env.step(env_action)
-                done = terminated or truncated
-                time_step += 1  # Incrementa il tick corrente
-
-                # Ottieni il prezzo attuale dalla tendenza
-                if time_step < len(self.trend):
-                    actual_price = self.trend[time_step]
-                else:
-                    actual_price = self.trend[-1]
-
-                # Logica di compravendita basata sull'azione scelta
-                if action == 1 and starting_money >= actual_price and time_step < (len(self.trend) - self.half_window):
-                    inventory.append(actual_price)
-                    starting_money -= actual_price
-                elif action == 2 and len(inventory) > 0:
-                    bought_price = inventory.pop(0)
-                    total_profit += actual_price - bought_price
-                    starting_money += actual_price
-
-                # Calcola la reward
-                step_reward = float(env_reward)
-
-                # Format dell'osservazione successiva
-                new_state = ut.state_formatter(observation)
-
-                # Aggiungi l'esperienza alla memoria
-                self.memory.append((state, action, step_reward, new_state, starting_money < budget))
-                state = new_state
-
-                # Esegui il replay se ci sono abbastanza esperienze
-                batch_size = min(self.batch_size, len(self.memory))
-                if batch_size > 0:
-                    loss = self.replay(batch_size)
-            
-            print(f"_current_tick (after training): {env.unwrapped._current_tick}")
-            print(f"Len of ds: {len(self.trend)}")
-            if (i + 1) % checkpoint == 0:
-                print(f'Epoch: {i + 1}, Total Profit: {total_profit:.3f}, Loss: {loss:.6f}, Total Money: {starting_money:.2f}')
-
-
-    def evalute_agent(self):
-        #TO DO
-        pass
-
-
-    def remember(self):
-        #TO DO
-        pass
+        # Stampa il profitto totale ottenuto durante la valutazione
+        print(f"Valutazione - Total Profit: {total_profit:.2f}")
+        return states_buy, states_sell, total_profit
