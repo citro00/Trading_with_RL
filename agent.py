@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import gymnasium as gym
-import gym_anytrading as gymany
-#  train: 
+
+ 
 class Agent:
     def __init__(self, state_size, window_size, trend, skip, batch_size, device):
         self.state_size = state_size
@@ -40,23 +40,6 @@ class Agent:
         state = torch.tensor(state, dtype=torch.float32).to(self.device)
         return self.model(state).argmax().item()
 
-    #Funzione da sostituire con quella dell'environment in quanto lo stato deve essere fornito dall'ambiente
-    def get_state(self, t):
-        '''t è un indice temporale
-        window_size è la dimensione dei punti dati da considerare per costruire lo stato
-        si incrementa di uno in modo da includere gli estremi'''
-        window_size = self.window_size + 1
-        #d rappresenta l'indice di trend da cui iniziare a prendere i dati per costruire lo stato
-        d = t - window_size + 1
-        '''per selezionare il blocco si verifica prima se d è maggiore di 0. Se non lo è siamo troppo vicini all'inizio dei dati
-        se d < 0 il blocco viene riempito con dati fittizzi uguali al primo valore della finestra mobile'''
-        block = self.trend[d : t + 1] if d >= 0 else -d * [self.trend[0]] + self.trend[0 : t + 1]
-        res = []
-        #per ogni coppia di valori nella finestra viene calcolata la differenza tra il prezzo successivo e quello precedente
-        for i in range(window_size - 1):
-            res.append(block[i + 1] - block[i])
-        return np.array([res])
-
     def replay(self, batch_size):
         mini_batch = random.sample(self.memory, batch_size)
         states = np.array([a[0][0] for a in mini_batch])
@@ -86,6 +69,7 @@ class Agent:
             self.epsilon *= self.epsilon_decay
 
         return loss.item()
+
 
     def buy(self, initial_money):
         starting_money = initial_money
@@ -129,59 +113,8 @@ class Agent:
         print(inventory)
         return states_buy, states_sell, total_gains, invest, shares_held
 
-    def train(self, iterations, checkpoint, initial_money): #applicare sull env
-        '''La funzione train prende in input il numero di iterazioni da compiere su tutto il dataset
-        il parametro checkpoint per indicare ogni quante iterazioni restituire delle informazioni
-        e il budget iniziale da cui partire per la compravendita di azioni.'''
-        print("Start training:")
-        for i in range(iterations):
-            '''Per ogni iterazione resetta il profitto ottenuto, le azioni contenute nel wallet e lo stato iniziale.'''
-            total_profit = 0
-            inventory = []
-            state = self.get_state(0)
-            starting_money = initial_money
 
-            #print(f"Start second for loop. Range from 0 to {len(self.trend)-1}, with step size {self.skip}")
-            print(f"Training iteration: {i}")
-            for t in range(0, len(self.trend) - 1, self.skip):
-                '''Esegue un for per la lunghezza del dataset a step di uno in cui fa scegliere all'agente un'azione da compiere
-                e genera lo stato successivo.'''
-                #seleziona l'azione da attuare
-                action = self.act(state)
-                next_state = self.get_state(t + 1)
-
-                '''Se l'azione generata è compra allora controlla che il budget sia sufficiente
-                per acquistare un'azione dato il prezzo attuale nel giorno che sta processando.
-                (la terza condizione non si comprende) '''
-                if action == 1 and starting_money >= self.trend[t] and t < (len(self.trend) - self.half_window):
-                    inventory.append(self.trend[t])
-                    starting_money -= self.trend[t]
-            
-                elif action == 2 and len(inventory) > 0: 
-                    '''Se l'azione generata è vendi controlla solamente che sia possibile effettuare la vendita
-                    in base alle azioni presenti nel wallet'''
-                    bought_price = inventory.pop(0)
-                    total_profit += self.trend[t] - bought_price
-                    starting_money += self.trend[t]
-                '''Invest è la reward e viene calcolata facendo la differenza tra il budget attuale e 
-                quello iniziale, diviso per il budget iniziale'''
-                invest = ((starting_money - initial_money) / initial_money) # fake reward 
-                #carica lo stato nella memoria della NN
-                self.memory.append((state, action, invest, next_state, starting_money < initial_money))
-                #Aggiorna lo sato corrente
-                state = next_state
-                #print(f"State: {state}")
-                #print(f"Index: {t}")
-
-                #definisce la dimensione del batch da utilizzare per la NN
-                batch_size = min(self.batch_size, len(self.memory))
-                #cost rappresenta la loss (la MSE tra i valori predetti e quelli reali)
-                cost = self.replay(batch_size)
-
-            if (i+1) % checkpoint == 0:
-                print('epoch: %d, total rewards: %f.3, cost: %f, total money: %f' % (i + 1, total_profit, cost, starting_money))
-
-    def new_train(self, iterations, checkpoint, budget, env: gym.Env):
+    def train(self, iterations, checkpoint, budget, env: gym.Env):
 
         print("#######################################################")
         print(f"Start agent training over {iterations} iterations")
@@ -254,3 +187,13 @@ class Agent:
             print(f"Len of ds: {len(self.trend)}")
             if (i + 1) % checkpoint == 0:
                 print(f'Epoch: {i + 1}, Total Profit: {total_profit:.3f}, Loss: {loss:.6f}, Total Money: {starting_money:.2f}')
+
+
+    def evalute_agent(self):
+        #TO DO
+        pass
+
+
+    def remember(self):
+        #TO DO
+        pass
