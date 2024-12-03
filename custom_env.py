@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 from gym_anytrading.envs import TradingEnv
-from gym import spaces
+from gymnasium import spaces
 from sklearn.preprocessing import StandardScaler
+from action import *
+from position import *
 
 class CustomStocksEnv(TradingEnv):
     """
@@ -31,7 +33,7 @@ class CustomStocksEnv(TradingEnv):
         self.prices, self.signal_features = self._process_data()
 
         # Definisce lo spazio delle azioni (0 = Hold, 1 = Buy, 2 = Sell)
-        self.action_space = spaces.Discrete(3)
+        self.action_space = spaces.Discrete(len(Action))
 
         # Definisce lo spazio delle osservazioni, ovvero l'input che l'agente riceverà (osservazioni passate)
         self.observation_space = spaces.Box(
@@ -41,7 +43,7 @@ class CustomStocksEnv(TradingEnv):
         )
 
         # Stato iniziale dell'ambiente
-        self._position = 0  # Nessuna posizione aperta
+        self._position = Position.Short  # 0: posizione short
         self._entry_price = 0  # Prezzo di entrata per una posizione
         self.total_profit = 0  # Profitto totale
         self._previous_portfolio_value = self.initial_balance  # Valore del portafoglio precedente
@@ -52,6 +54,10 @@ class CustomStocksEnv(TradingEnv):
 
         :return: Prezzi e feature di segnale normalizzate.
         """
+        # Controlla che ci siano le colonne necessarie 
+        required_columns = ['Close', 'Volume']
+        if not all(col in self.df.columns for col in required_columns):
+            raise ValueError(f"Le colonne richieste {required_columns} non sono presenti nel DataFrame.")
         # Ottieni il range dei dati da usare basandoti sui limiti specificati
         start = self.frame_bound[0]
         end = self.frame_bound[1]
@@ -70,7 +76,7 @@ class CustomStocksEnv(TradingEnv):
 
         return prices, signal_features
 
-    def _calculate_reward(self, action): # todo applicare l'azione stay
+    def _calculate_reward(self, action): # todo ristrutturare
         """
         Calcola il reward basato sull'azione eseguita.
 
@@ -162,6 +168,7 @@ class CustomStocksEnv(TradingEnv):
 
         if start < 0:
             start = 0
+
         if end > len(self.signal_features):
             end = len(self.signal_features)
 
@@ -193,6 +200,10 @@ class CustomStocksEnv(TradingEnv):
         """
         return self._current_tick
 
+    def step(self, action):
+        # TO DO
+        return super().step()
+ 
     def reset(self):
         """
         Resetta l'ambiente al suo stato iniziale.

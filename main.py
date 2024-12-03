@@ -1,86 +1,68 @@
+import pandas as pd
+from custom_env import CustomStocksEnv
 from agent import Agent
 import utils as ut
 import torch
-import plotly.graph_objects as go
-import gym_anytrading
-import gymnasium as gym
 import matplotlib.pyplot as plt
-import pandas as pd
 
-#Download data
+# Parametri per il download dei dati
 start_date = "2020-01-01"
 end_date = "2024-12-30"
-symbol = "AAPL"
+symbol = "BTC-USD"
 
 data = ut.download(symbol, start_date, end_date)
 
-#Data preprocessing
-close_prcie = ut.get_close_data(ut.cleaning(data))
+data = ut.cleaning(data)
 
-#Agent variables
-budget = 10000
 window_size = 30
-skip = 1
-batch_size = 32
+frame_bound = (window_size, len(data))
+initial_balance = 1000
 
-#Select device for computation
+print("Inizializzazione dell'ambiente...")
+env = CustomStocksEnv(
+    df=data,
+    window_size=window_size,
+    frame_bound=frame_bound,
+    initial_balance=initial_balance
+)
+print(f"Ambiente inizializzato. Prezzi shape: {env.prices.shape}, Signal features shape: {env.signal_features.shape}")
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+state_size = env.observation_space.shape[0] * env.observation_space.shape[1]
+action_size = env.action_space.n
+batch_size = 64
 
-#Create agent instance
-agent = Agent(state_size=window_size,
-              window_size=window_size,
-              trend=close_prcie,
-              skip=skip,
-              batch_size=batch_size,
-              device=device)
+print(f"State size: {state_size}, Action size: {action_size}, Batch size: {batch_size}, Device: {device}")
 
-#Env initialization
-env = gym.make('stocks-v0', frame_bound=(30, len(data)-1), window_size=window_size)
-
-agent.new_train(iterations=50, checkpoint=1, budget=budget, env=env)
-
-
-#Evaluate the agent
-states_buy, states_sell, total_gains, invest, shares_held = agent.buy(budget)
-print(f"States_buy: {states_buy}\nStates_sell: {states_sell}\nTotal_gains: {total_gains}\nInvest: {invest}\nShere_held: {shares_held}")
-
-
-starting_money = 100000
-
-final_share_price = close_prcie[-1]  # Final share price
-total_portfolio_value = starting_money + shares_held * final_share_price
-total_gains = total_portfolio_value - starting_money
-
-fig = go.Figure()
-
-# Candlestick trace
-fig.add_trace(go.Candlestick(x=data.index,
-                             open=data['Open'],
-                             high=data['High'],
-                             low=data['Low'],
-                             close=data['Close']))
-
-# Buy signals trace
-fig.add_trace(go.Scatter(x=[data.index[i] for i in states_buy],
-                         y=[close_prcie[i] for i in states_buy],
-                         mode='markers',
-                         name='Buy Signals',
-                         marker=dict(symbol='triangle-up', size=10, color='green')))
-
-# Sell signals trace
-fig.add_trace(go.Scatter(x=[data.index[i] for i in states_sell],
-                         y=[close_prcie[i] for i in states_sell],
-                         mode='markers',
-                         name='Sell Signals',
-                         marker=dict(symbol='triangle-down', size=10, color='red')))
-
-# Set layout
-fig.update_layout(
-    title=f'Total Gains: {total_gains:.2f}, Total Portfolio Value: {total_portfolio_value:.2f}',
-    xaxis_title='Date',
-    yaxis_title='Price',
-    template='plotly_dark',
-    legend=dict(x=0, y=1, orientation='h')
+print("Inizializzazione dell'agente...")
+agent = Agent(
+    state_size=state_size,
+    action_size=action_size,
+    batch_size=batch_size,
+    device=device
 )
 
-fig.show()
+episodes = 200
+agent.train_agent(env, episodes)
+
+model_path = "agent_model.pth"
+torch.save(agent.model.state_dict(), model_path)
+print(f"Modello salvato in {model_path}")
+
+print("Inizio valutazione dell'agente.")
+states_buy, states_sell, total_profit = agent.evaluate_agent(env)
+print(f"Total Profit: {total_profit}")
+
+plt.figure(figsize=(15, 5))
+plt.plot(env.prices, color='r', lw=2., label='Price')
+
+if states_buy:
+    plt.plot(states_buy, env.prices[states_buy], '^', markersize=10, color='m', label='Buy Signal')
+if states_sell:
+    plt.plot(states_sell, env.prices[states_sell], 'v', markersize=10, color='k', label='Sell Signal')
+
+plt.title(f'Total Profit: {total_profit:.2f}')
+plt.xlabel('Tick')
+plt.ylabel('Price')
+plt.legend()
+plt.show()

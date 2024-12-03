@@ -28,6 +28,7 @@ def compute_metrics(data):
     return metrics
 
 def download(asset, start_date, end_date):
+    print("Scarico i dati storici dell'azione...")
     try:
         data = yf.download(asset, start=start_date, end=end_date)
         if data.empty:
@@ -41,12 +42,12 @@ def download(asset, start_date, end_date):
     return data
 
 def cleaning(data: pd.DataFrame):
+    print("Pulizia dei dati...")
     if isinstance(data.columns, pd.MultiIndex):
         data.columns = [' '.join(col).strip() for col in data.columns.values]
     data.columns = [col.split(' ')[0] for col in data.columns]
     data.reset_index(inplace=True)
-    print("Dati dopo la pulizia:")
-    print(data.head())
+    print(f"Dati puliti: {data.shape}")
     return data
 
 def get_close_data(data: pd.DataFrame):

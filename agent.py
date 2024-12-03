@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from collections import deque
 import utils as ut
+from gym_anytrading.envs import TradingEnv
 
 class Agent:
     def __init__(self, state_size, action_size, batch_size, device):
@@ -121,7 +122,7 @@ class Agent:
 
         return loss.item()
 
-    def train_agent(self, env, episodes):
+    def train_agent(self, env:TradingEnv, episodes):
         """
         Addestra l'agente interagendo con l'ambiente.
         """
@@ -156,11 +157,11 @@ class Agent:
 
             # Calcola e stampa la perdita media dell'episodio
             average_loss = total_loss / loss_count if loss_count > 0 else 0
-            print(f"Episode {episode}/{episodes} - Total Profit: {total_profit:.2f} - Loss: {average_loss:.4f} - Epsilon: {self.epsilon:.4f}")
+            print(f"Episode {episode}/{episodes} - Total Profit: {total_profit:.2f} - Average Loss: {average_loss:.4f} - Loss: {loss:.4f} - Epsilon: {self.epsilon:.4f}")
 
         print("Addestramento completato.")
 
-    def evaluate_agent(self, env): #todo implemetn
+    def evaluate_agent(self, env:TradingEnv): #todo implemetn
         """
         Valuta l'agente eseguendo un episodio di trading.
         """
@@ -174,6 +175,7 @@ class Agent:
 
         # Ciclo fino a che l'episodio di valutazione non termina
         while not done:
+            #Sotituire act_training con act_execution
             action = self.act(state)  # L'agente decide un'azione
             next_state, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
