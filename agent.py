@@ -55,7 +55,7 @@ class Agent:
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)  # Inizializza i bias a 0
 
-    def act(self, state):
+    '''def act(self, state):
         """
         Decide un'azione basata sullo stato attuale.
         """
@@ -65,7 +65,15 @@ class Agent:
             q_values = self.model(state)  # Ottieni i valori Q per tutte le azioni
         # Usa softmax per generare una distribuzione di probabilità tra le azioni
         probabilities = torch.softmax(q_values, dim=0).cpu().numpy()
-        return np.random.choice(self.action_size, p=probabilities)  # Seleziona un'azione in base alla distribuzione
+        return np.random.choice(self.action_size, p=probabilities)  # Seleziona un'azione in base alla distribuzione'''
+    
+    def act(self, state):
+        """Decide un'azione basata sullo stato attuale con una policy e-greedy"""
+        if random.random() <= self.epsilon:
+            return random.randrange(self.action_size)
+
+        s = torch.tensor(state, dtype=torch.float32, device=self.device)
+        return self.model(s).argmax().item()
 
     def remember(self, state, action, reward, next_state, done):
         """
