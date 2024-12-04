@@ -20,7 +20,7 @@ class Agent:
         self.gamma = 0.95  # Fattore di sconto per il valore delle ricompense future (0 < gamma < 1)
         self.epsilon = 1.0  # Probabilità iniziale di esplorazione (tasso di esplorazione)
         self.epsilon_min = 0.01  # Probabilità minima di esplorazione
-        self.epsilon_decay = 0.5  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
+        self.epsilon_decay = 0.999  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
 
         # Definizione del modello di rete neurale (Q-Network) che rappresenta la policy dell'agente
         self.model = nn.Sequential(
@@ -80,11 +80,12 @@ class Agent:
         Restituisce il valore della loss.
         """
         # Controlla se ci sono abbastanza esperienze nella memoria per un batch completo
-        if len(self.memory) < self.batch_size:
-            return None
+        #if len(self.memory) < self.batch_size:
+            #return None
 
+        batch = min(len(self.memory), self.batch_size)
         # Preleva un minibatch casuale dalla memoria
-        minibatch = random.sample(self.memory, self.batch_size)
+        minibatch = random.sample(self.memory, batch)
         states, actions, rewards, next_states, dones = zip(*minibatch)
 
         # Converti tutti i dati del batch in tensor di PyTorch
@@ -132,7 +133,6 @@ class Agent:
             state, info = env.reset()
             state = ut.state_formatter(state)
             done = False
-            total_profit = 0
             total_loss = 0
             loss_count = 0
 
@@ -141,13 +141,13 @@ class Agent:
                 action = self.act(state)  # L'agente decide un'azione
                 # Esegui l'azione nell'ambiente
                 next_state, reward, terminated, truncated, info = env.step(action)
+                print(f"Epsilon: {self.epsilon}")
                 done = terminated or truncated
                 next_state = ut.state_formatter(next_state)
 
                 # Salva l'esperienza nella memoria
                 self.remember(state, action, reward, next_state, done)
                 state = next_state
-                total_profit += reward
 
                 # Addestra la rete con l'esperienza memorizzata
                 loss = self.replay()
@@ -157,7 +157,7 @@ class Agent:
 
             # Calcola e stampa la perdita media dell'episodio
             average_loss = total_loss / loss_count if loss_count > 0 else 0
-            print(f"Episode {episode}/{episodes} - Total Profit: {total_profit:.2f} - Average Loss: {average_loss:.4f} - Loss: {loss:.4f} - Epsilon: {self.epsilon:.4f}")
+            print(f"Episode {episode}/{episodes} - Total Profit: {env._total_profit:.2f} - Average Loss: {average_loss:.4f} - Loss: {loss} - Epsilon: {self.epsilon:.4f}")
 
         print("Addestramento completato.")
 

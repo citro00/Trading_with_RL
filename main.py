@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 # Parametri per il download dei dati
 start_date = "2020-01-01"
-end_date = "2024-12-30"
+end_date = "2021-12-30"
 symbol = "BTC-USD"
 
 data = ut.download(symbol, start_date, end_date)
@@ -16,7 +16,7 @@ data = ut.cleaning(data)
 
 window_size = 30
 frame_bound = (window_size, len(data))
-initial_balance = 1000
+initial_balance = 10000
 
 print("Inizializzazione dell'ambiente...")
 env = CustomStocksEnv(
@@ -45,9 +45,9 @@ agent = Agent(
 episodes = 200
 agent.train_agent(env, episodes)
 
-model_path = "agent_model.pth"
-torch.save(agent.model.state_dict(), model_path)
-print(f"Modello salvato in {model_path}")
+#model_path = "agent_model.pth"
+#torch.save(agent.model.state_dict(), model_path)
+#print(f"Modello salvato in {model_path}")
 
 print("Inizio valutazione dell'agente.")
 states_buy, states_sell, total_profit = agent.evaluate_agent(env)

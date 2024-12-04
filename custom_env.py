@@ -25,6 +25,7 @@ class CustomStocksEnv(TradingEnv):
         self.window_size = window_size
         self.frame_bound = frame_bound
         self.initial_balance = initial_balance
+        self._terminate = None
 
         # Richiama il costruttore della classe base (TradingEnv)
         super().__init__(df=df, window_size=window_size)
@@ -43,10 +44,13 @@ class CustomStocksEnv(TradingEnv):
         )
 
         # Stato iniziale dell'ambiente
-        self._position = Position.Short  # 0: posizione short
-        self._entry_price = 0  # Prezzo di entrata per una posizione
-        self.total_profit = 0  # Profitto totale
-        self._previous_portfolio_value = self.initial_balance  # Valore del portafoglio precedente
+        #self.total_profit = 0  # Profitto totale
+        self._step_profit = 0
+        self._wallet_value = initial_balance
+
+    def print_env_var(self, step_reward, action):
+        print("##############################################")
+        print(f"Intial Balance: {self.initial_balance}\nTerminate: {self._terminate}\nTruncated: {self._truncated}\nAction:{action}\nStep profit: {self._step_profit}\nTotal profit: {self._total_profit}\nWallet value: {self._wallet_value}\nActual price: {self.prices[self._current_tick]}\nCurrent tick: {self._current_tick}\nLast trade tick: {self._last_trade_tick}\nPosition: {self._position}\nTotal reward: {self._total_reward}\nStep reward: {step_reward}")
 
     def _process_data(self):
         """
@@ -76,7 +80,7 @@ class CustomStocksEnv(TradingEnv):
 
         return prices, signal_features
 
-    def _calculate_reward(self, action): # todo ristrutturare
+    '''def _calculate_reward(self, action): # todo ristrutturare
         """
         Calcola il reward basato sull'azione eseguita.
 
@@ -98,11 +102,15 @@ class CustomStocksEnv(TradingEnv):
 
         # Penalità per comprare o vendere in modo inappropriato
         if action == 1:  # Buy
+            print(f"Action: {Action.Buy.value}")
             if self._position == 1:
+                print(f"Position: {Position.Long.value}")
                 step_reward -= 0.1  # Penalità per comprare quando già in posizione
             else:
+                print(f"Position: {Position.Short.value}")
                 step_reward -= transaction_cost  # Costo di transazione per comprare
         elif action == 2:  # Sell
+            print(f"Action: {Action.Buy.value}")
             if self._position == 0:
                 step_reward -= 0.1  # Penalità per vendere senza avere posizioni aperte
             else:
@@ -145,7 +153,23 @@ class CustomStocksEnv(TradingEnv):
                 price_diff = self.prices[self._current_tick] - self._entry_price
                 self.total_profit += price_diff
 
-        return step_reward
+        return step_reward'''
+
+    def _calculate_reward(self, action):
+        '''step_reward = 0
+        
+        if action == Action.Buy.value:
+            step_reward -= self._wallet_value * 0.1
+        elif action == Action.Sell.value:
+            step_reward += self._step_profit * 0.1
+        
+        return step_reward'''
+        if action == Action.Buy.value:
+            return 0
+        elif action == Action.Sell.value:
+            return self._step_profit
+        else:
+            return 0
 
     def _update_profit(self, action):
         """
@@ -154,8 +178,9 @@ class CustomStocksEnv(TradingEnv):
         :param action: Azione scelta dall'agente.
         :return: Reward ottenuto dall'azione.
         """
-        step_reward = self._calculate_reward(action)
-        return step_reward
+        if action == Action.Sell.value:
+            self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])
+            self._total_profit += self._step_profit
 
     def _get_observation(self):
         """
@@ -181,7 +206,7 @@ class CustomStocksEnv(TradingEnv):
 
         return obs
 
-    def _get_info(self):
+    '''def _get_info(self):
         """
         Ottiene informazioni aggiuntive sull'ambiente.
 
@@ -190,7 +215,7 @@ class CustomStocksEnv(TradingEnv):
         return {
             'total_profit': self.total_profit,
             'position': self._position
-        }
+        }'''
 
     def get_current_tick(self):
         """
@@ -201,8 +226,38 @@ class CustomStocksEnv(TradingEnv):
         return self._current_tick
 
     def step(self, action):
-        # TO DO
-        return super().step()
+        self._terminate = False
+        self._current_tick += 1
+        self._step_profit = 0
+
+        if self._current_tick == self._end_tick:
+            self._terminate = True
+        
+        if self._wallet_value <= 0:
+            self._truncated = True
+        
+        self._update_profit(action)
+        step_reward = self._calculate_reward(action)
+        self._total_reward += step_reward
+
+        if action == Action.Buy.value and self._wallet_value >= self.prices[self._current_tick]:
+            self._wallet_value -= self.prices[self._current_tick]
+            self._last_trade_tick = self._current_tick
+            self._position = Position.Long
+        elif action == Action.Sell.value:
+            self._wallet_value += self.prices[self._current_tick]
+            self._position = Position.Long
+            
+        observation = self._get_observation()
+        info = self._get_info()
+        self._update_history(info)
+
+        if self.render_mode == 'human':
+            self._render_frame()
+
+        self.print_env_var(step_reward, action)
+
+        return observation, step_reward, self._terminate, self._truncated, info
  
     def reset(self):
         """
@@ -211,8 +266,8 @@ class CustomStocksEnv(TradingEnv):
         :return: L'osservazione iniziale e le informazioni dell'ambiente.
         """
         obs, info = super().reset()
-        self._position = 0
-        self._entry_price = 0
-        self.total_profit = 0
-        self._previous_portfolio_value = self.initial_balance
+        self._total_profit = 0
+        self._step_profit = 0
+        self._total_reward = 0
+        self._wallet_value = self.initial_balance
         return obs, info
