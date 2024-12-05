@@ -16,7 +16,7 @@ data = ut.cleaning(data)
 
 window_size = 30
 frame_bound = (window_size, len(data))
-initial_balance = 10000
+initial_balance = 100000
 
 print("Inizializzazione dell'ambiente...")
 env = CustomStocksEnv(
@@ -42,7 +42,7 @@ agent = Agent(
     device=device
 )
 
-episodes = 200
+episodes = 50
 agent.train_agent(env, episodes)
 
 #model_path = "agent_model.pth"

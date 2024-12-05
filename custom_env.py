@@ -20,12 +20,15 @@ class CustomStocksEnv(TradingEnv):
         :param frame_bound: Limiti di indice per i dati da utilizzare (inizio e fine).
         :param initial_balance: Bilancio iniziale del portafoglio dell'agente.
         """
+
         # Inizializza variabili dell'ambiente
-        self.df = df
-        self.window_size = window_size
         self.frame_bound = frame_bound
         self.initial_balance = initial_balance
         self._terminate = None
+        self._step_profit = None
+        self._actual_budget = None
+        self._purchased_assets = None
+        self._done_deal = None
 
         # Richiama il costruttore della classe base (TradingEnv)
         super().__init__(df=df, window_size=window_size)
@@ -42,15 +45,6 @@ class CustomStocksEnv(TradingEnv):
             shape=(self.window_size, self.signal_features.shape[1]),
             dtype=np.float32
         )
-
-        # Stato iniziale dell'ambiente
-        #self.total_profit = 0  # Profitto totale
-        self._step_profit = 0
-        self._wallet_value = initial_balance
-
-    def print_env_var(self, step_reward, action):
-        print("##############################################")
-        print(f"Intial Balance: {self.initial_balance}\nTerminate: {self._terminate}\nTruncated: {self._truncated}\nAction:{action}\nStep profit: {self._step_profit}\nTotal profit: {self._total_profit}\nWallet value: {self._wallet_value}\nActual price: {self.prices[self._current_tick]}\nCurrent tick: {self._current_tick}\nLast trade tick: {self._last_trade_tick}\nPosition: {self._position}\nTotal reward: {self._total_reward}\nStep reward: {step_reward}")
 
     def _process_data(self):
         """
@@ -80,86 +74,11 @@ class CustomStocksEnv(TradingEnv):
 
         return prices, signal_features
 
-    '''def _calculate_reward(self, action): # todo ristrutturare
-        """
-        Calcola il reward basato sull'azione eseguita.
-
-        :param action: Azione scelta dall'agente (0 = Hold, 1 = Buy, 2 = Sell)
-        :return: Reward ottenuto dall'azione.
-        """
-        transaction_cost = 0.001  # 0.1% di costo di transazione
-
-        # Calcola il valore attuale del portafoglio
-        cash = self.initial_balance + self.total_profit
-        current_holdings = self.prices[self._current_tick] if self._position == 1 else 0
-        portfolio_value = cash + current_holdings * self._position
-
-        # Calcola il reward basato sulla variazione del valore del portafoglio
-        if hasattr(self, '_previous_portfolio_value'):
-            step_reward = portfolio_value - self._previous_portfolio_value
-        else:
-            step_reward = 0
-
-        # Penalità per comprare o vendere in modo inappropriato
-        if action == 1:  # Buy
-            print(f"Action: {Action.Buy.value}")
-            if self._position == 1:
-                print(f"Position: {Position.Long.value}")
-                step_reward -= 0.1  # Penalità per comprare quando già in posizione
-            else:
-                print(f"Position: {Position.Short.value}")
-                step_reward -= transaction_cost  # Costo di transazione per comprare
-        elif action == 2:  # Sell
-            print(f"Action: {Action.Buy.value}")
-            if self._position == 0:
-                step_reward -= 0.1  # Penalità per vendere senza avere posizioni aperte
-            else:
-                step_reward -= transaction_cost  # Costo di transazione per vendere
-
-        # Incentivo per mantenere posizioni profittevoli
-        if self._position == 1:
-            unrealized_profit = self.prices[self._current_tick] - self._entry_price
-            step_reward += unrealized_profit * 0.1  # Incentivo per mantenere posizioni profittevoli
-
-        # Incentivo per vendere in profitto
-        if action == 2 and self._position == 1:
-            realized_profit = self.prices[self._current_tick] - self._entry_price
-            if realized_profit > 0:
-                step_reward += realized_profit * 0.1  # Incentivo per vendere in profitto
-
-        # Penalità per mantenere posizioni troppo a lungo
-        if self._position == 1:
-            holding_duration = self._current_tick - self._entry_price
-            step_reward -= 0.001 * holding_duration  # Penalità per mantenere una posizione troppo a lungo
-
-        # Reward relativo alla performance del mercato (misura il successo dell'agente rispetto al mercato)
-        market_return = (self.prices[self._current_tick] / self.prices[0]) - 1
-        agent_return = self.total_profit / self.initial_balance
-        relative_reward = (agent_return - market_return) * 0.1
-        step_reward += relative_reward
-
-        # Normalizza il reward per ridurre la sua variabilità
-        step_reward = step_reward / 10
-        self._previous_portfolio_value = portfolio_value
-
-        # Aggiorna la posizione e i dati di profitto totali basandosi sull'azione presa
-        if action == 1:  # Buy
-            if self._position == 0:
-                self._position = 1
-                self._entry_price = self.prices[self._current_tick]
-        elif action == 2:  # Sell
-            if self._position == 1:
-                self._position = 0
-                price_diff = self.prices[self._current_tick] - self._entry_price
-                self.total_profit += price_diff
-
-        return step_reward'''
-
     def _calculate_reward(self, action):
         '''step_reward = 0
         
         if action == Action.Buy.value:
-            step_reward -= self._wallet_value * 0.1
+            step_reward -= self._actual_budget * 0.1
         elif action == Action.Sell.value:
             step_reward += self._step_profit * 0.1
         
@@ -178,9 +97,8 @@ class CustomStocksEnv(TradingEnv):
         :param action: Azione scelta dall'agente.
         :return: Reward ottenuto dall'azione.
         """
-        if action == Action.Sell.value:
-            self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])
-            self._total_profit += self._step_profit
+        self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])
+        self._total_profit += self._step_profit
 
     def _get_observation(self):
         """
@@ -206,48 +124,60 @@ class CustomStocksEnv(TradingEnv):
 
         return obs
 
-    '''def _get_info(self):
-        """
-        Ottiene informazioni aggiuntive sull'ambiente.
-
-        :return: Dizionario con informazioni sul profitto totale e la posizione corrente.
-        """
-        return {
-            'total_profit': self.total_profit,
-            'position': self._position
-        }'''
-
-    def get_current_tick(self):
-        """
-        Ottiene l'indice corrente (il tick) del trading.
-
-        :return: L'indice attuale.
-        """
-        return self._current_tick
-
     def step(self, action):
+        # Reset parametri iniziali
         self._terminate = False
         self._current_tick += 1
         self._step_profit = 0
+        self._done_deal = False
 
+        # Controllimao che l'episodio non sia terminato
         if self._current_tick == self._end_tick:
             self._terminate = True
         
-        if self._wallet_value <= 0:
+        # Controllimao che il budget disponibile non sia a 0 (altrimenti tronchiamo l'esecuzione)
+        if self._actual_budget <= 0:
             self._truncated = True
-        
-        self._update_profit(action)
+                
+        # Calcoliamo la reard
         step_reward = self._calculate_reward(action)
+        
+        # Aggiorniamo la reward totale totale dell'episodio
         self._total_reward += step_reward
 
-        if action == Action.Buy.value and self._wallet_value >= self.prices[self._current_tick]:
-            self._wallet_value -= self.prices[self._current_tick]
-            self._last_trade_tick = self._current_tick
-            self._position = Position.Long
-        elif action == Action.Sell.value:
-            self._wallet_value += self.prices[self._current_tick]
-            self._position = Position.Long
+        if action == Action.Buy.value and self._actual_budget >= self.prices[self._current_tick]:
+            # Se l'azione selezionata è buy e il budget disponibile è superiore al prezzo corrente dell'asset: 
             
+            # Sottraiamo dal budget attuale il prezzo dell'asset (compriamo)
+            self._actual_budget -= self.prices[self._current_tick]
+
+            # Salviamo il tick corrente come il tick in cui è stato effettuata l'ultima compera
+            self._last_trade_tick = self._current_tick
+
+            # Aggiungiamo il prezzo corrente alla lista delle azioni acquistate
+            self._purchased_assets.append(self.prices[self._current_tick])
+
+            # Settiamo la posizione a Long
+            self._position = Position.Long
+
+            self._done_deal = True
+        elif action == Action.Sell.value and len(self._purchased_assets)>0:
+            # Se l'azione selezionata è sell e la lista degli asset acquistati non è vuota:
+        
+            # Aggiornamo il budget attuale aggiungendo il prezzo attuale dell'asset a cui lo stiamo vendendo  
+            self._actual_budget += self.prices[self._current_tick]
+
+            # Calcoliamo il profitto data l'azione scelta
+            self._update_profit(action)
+
+            # Rimuoviamo il primo elmento della lista degli asset acquistati 
+            # (da rivedere, perché dovrebbe vendere l'asset che ha acquistato al prezzo più basso)
+            self._purchased_assets.pop(0)
+            
+            # Settiamo la posizione a Long
+            self._position = Position.Long
+            self._done_deal = True
+
         observation = self._get_observation()
         info = self._get_info()
         self._update_history(info)
@@ -258,7 +188,7 @@ class CustomStocksEnv(TradingEnv):
         self.print_env_var(step_reward, action)
 
         return observation, step_reward, self._terminate, self._truncated, info
- 
+
     def reset(self):
         """
         Resetta l'ambiente al suo stato iniziale.
@@ -269,5 +199,37 @@ class CustomStocksEnv(TradingEnv):
         self._total_profit = 0
         self._step_profit = 0
         self._total_reward = 0
-        self._wallet_value = self.initial_balance
+        self._actual_budget = self.initial_balance
+        self._purchased_assets = []
         return obs, info
+
+    def print_env_var(self, step_reward, action):
+        print("##############################################")
+        print(f"Intial Balance: {self.initial_balance}\n"+\
+              #f"Terminate: {self._terminate}\n"+\
+              #f"Truncated: {self._truncated}\n"+\
+              f"Action:{action}\n"+\
+              f"Done deal: {self._done_deal}\n"+\
+              f"Step profit: {self._step_profit}\n"+\
+              f"Total profit: {self._total_profit}\n"+\
+              f"Actual budget: {self._actual_budget}\n"+\
+              f"Actual price: {self.prices[self._current_tick]}\n"+\
+              f"Length of purchased asset: {len(self._purchased_assets)}\n"+\
+              #f"Wallet value: {self._wallet_value}\n"+\
+              #f"Type of wallet_vale var: {type(self._wallet_value)}\n"+\
+              f"Current tick: {self._current_tick}\n"+\
+              f"Last trade tick: {self._last_trade_tick}\n")
+              #f"Position: {self._position}\n"+\
+              #f"Total reward: {self._total_reward}\n"+\
+              #f"Step reward: {step_reward}
+
+    def get_current_tick(self):
+        """
+        Ottiene l'indice corrente (il tick) del trading.
+
+        :return: L'indice attuale.
+        """
+        return self._current_tick
+    
+    def get_done_deal(self):
+        return self._done_deal

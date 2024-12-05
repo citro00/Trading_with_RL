@@ -6,6 +6,8 @@ import torch.optim as optim
 from collections import deque
 import utils as ut
 from gym_anytrading.envs import TradingEnv
+from action import Action
+from position import Position
 
 class Agent:
     def __init__(self, state_size, action_size, batch_size, device):
@@ -183,16 +185,15 @@ class Agent:
 
         # Ciclo fino a che l'episodio di valutazione non termina
         while not done:
-            #Sotituire act_training con act_execution
             action = self.act(state)  # L'agente decide un'azione
             next_state, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             next_state = ut.state_formatter(next_state)
 
             # Salva i tick di acquisto o vendita
-            if action == 1:
+            if action == Action.Buy.value and env.get_done_deal():
                 states_buy.append(env.get_current_tick())
-            elif action == 2:
+            elif action == Action.Sell.value and env.get_done_deal():
                 states_sell.append(env.get_current_tick())
 
             state = next_state
