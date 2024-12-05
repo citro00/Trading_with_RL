@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # Parametri per il download dei dati
 start_date = "2020-01-01"
 end_date = "2021-12-30"
-symbol = "BTC-USD"
+symbol = "AAPL"
 
 data = ut.download(symbol, start_date, end_date)
 
@@ -16,7 +16,7 @@ data = ut.cleaning(data)
 
 window_size = 30
 frame_bound = (window_size, len(data))
-initial_balance = 100000
+initial_balance = 10000
 
 print("Inizializzazione dell'ambiente...")
 env = CustomStocksEnv(
@@ -44,6 +44,7 @@ agent = Agent(
 
 episodes = 50
 agent.train_agent(env, episodes)
+env.save_reward_history("Reward_History_Training.csv")
 
 #model_path = "agent_model.pth"
 #torch.save(agent.model.state_dict(), model_path)
@@ -52,6 +53,7 @@ agent.train_agent(env, episodes)
 print("Inizio valutazione dell'agente.")
 states_buy, states_sell, total_profit = agent.evaluate_agent(env)
 print(f"Total Profit: {total_profit}")
+env.save_reward_history("Reward_history_evaluate.csv")
 
 plt.figure(figsize=(15, 5))
 plt.plot(env.prices, color='r', lw=2., label='Price')

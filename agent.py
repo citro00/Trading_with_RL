@@ -8,6 +8,7 @@ import utils as ut
 from gym_anytrading.envs import TradingEnv
 from action import Action
 from position import Position
+from custom_env import CustomStocksEnv
 
 class Agent:
     def __init__(self, state_size, action_size, batch_size, device):
@@ -182,6 +183,7 @@ class Agent:
         states_buy = []
         states_sell = []
         total_profit = 0
+        total_reward = 0
 
         # Ciclo fino a che l'episodio di valutazione non termina
         while not done:
@@ -197,7 +199,10 @@ class Agent:
                 states_sell.append(env.get_current_tick())
 
             state = next_state
-            total_profit += reward
+            print(f"Step reward: {reward}")
+            total_reward += reward
+        total_profit = env.get_total_profit()
+        print(f"Total profit: {total_profit}\nTotal reward: {total_reward}")
 
         # Stampa il profitto totale ottenuto durante la valutazione
         print(f"Valutazione - Total Profit: {total_profit:.2f}")
