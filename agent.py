@@ -165,6 +165,7 @@ class Agent:
                 if loss is not None:
                     total_loss += loss
                     loss_count += 1
+                print(f"Loss: {loss}")
 
             # Calcola e stampa la perdita media dell'episodio
             average_loss = total_loss / loss_count if loss_count > 0 else 0

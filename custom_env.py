@@ -95,10 +95,18 @@ class CustomStocksEnv(TradingEnv):
                     step_reward += self._step_profit * 0.4  # Ricompensa per profitto
                 else:
                     step_reward -= abs(self._step_profit) * 0.5  # Penalità per perdita
+                
+                if self._total_profit <= 0:
+                    step_reward -= self._total_profit * 0.02
                
-            
-
-
+            if action==Action.Hold.value and self._position==Position.Long.value and self.prices[self._current_tick] > self.prices[self._last_buy]:
+                step_reward += (self.prices[self._current_tick]- self.prices[self._last_buy])
+            elif action==Action.Hold.value and self._position==Position.Long.value and self.prices[self._current_tick] <= self.prices[self._last_buy]:
+                step_reward -= abs(self.prices[self._current_tick]- self.prices[self._last_buy])*0.2
+            elif action==Action.Hold.value and self._position==Position.Short.value and self.prices[self._current_tick] < self.prices[self._last_buy]:
+                step_reward += (self.prices[self._current_tick]- self.prices[self._last_buy])
+            elif action==Action.Hold.value and self._position==Position.Short.value and self.prices[self._current_tick] >= self.prices[self._last_buy]:
+               step_reward -= abs(self.prices[self._current_tick]- self.prices[self._last_buy])*0.2
 
 
             # Penalità per l'inattività (tempo trascorso dall'ultima transazione)

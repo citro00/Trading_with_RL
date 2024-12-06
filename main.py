@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 # Parametri per il download dei dati
 start_date = "2020-01-01"
-end_date = "2021-12-30"
+end_date = "2024-12-30"
 symbol = "AAPL"
 
 data = ut.download(symbol, start_date, end_date)
@@ -15,7 +15,7 @@ data = ut.download(symbol, start_date, end_date)
 data = ut.cleaning(data)
 
 window_size = 30
-frame_bound = (window_size, len(data))
+frame_bound = (window_size, len(data)//2)
 initial_balance = 10000
 
 print("Inizializzazione dell'ambiente...")
@@ -49,6 +49,13 @@ env.save_reward_history("Reward_History_Training.csv")
 #model_path = "agent_model.pth"
 #torch.save(agent.model.state_dict(), model_path)
 #print(f"Modello salvato in {model_path}")
+
+env = CustomStocksEnv(
+    df=data,
+    window_size=window_size,
+    frame_bound=((len(data)//2)+1, len(data)),
+    initial_balance=initial_balance
+)
 
 print("Inizio valutazione dell'agente.")
 states_buy, states_sell, total_profit = agent.evaluate_agent(env)
