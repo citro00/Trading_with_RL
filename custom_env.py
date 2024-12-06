@@ -32,6 +32,9 @@ class CustomStocksEnv(TradingEnv):
         self._last_trade_tick = None
         self._last_buy = None
         self._reward_history = None
+        
+        # Inizializza la posizione come Flat
+        self._position = Position.Flat #AGGIUNTO DA ME CARMINE
 
         # Richiama il costruttore della classe base (TradingEnv)
         super().__init__(df=df, window_size=window_size)
@@ -79,38 +82,33 @@ class CustomStocksEnv(TradingEnv):
 
         return prices, signal_features
 
-    def _calculate_reward(self, action):        
-        '''if action == Action.Buy.value:
-            return 0
-        elif action == Action.Sell.value:
-            return self._step_profit
-        else:
-            return 0'''
-        
-        step_reward = 0
-        
-        #Reward
-        if action==Action.Sell.value and self._total_profit > 0:
-            step_reward += self._total_profit * 0.3
+    def _calculate_reward(self, action):
+            """
+            Calcola la ricompensa basata sull'azione eseguita.
+            :param action: Azione eseguita dall'agente.
+            :return: Ricompensa del passo.
+            """
+            step_reward = 0
 
-        if action==Action.Sell.value and self._step_profit > 0:
-            step_reward += self._step_profit * 0.4
-
-        #Penality
-        if action==Action.Sell.value and self._total_profit <= 0:
-            step_reward += self._total_profit * 0.4
-
-        if action==Action.Sell.value and self._step_profit <= 0:
-            step_reward += self._step_profit * 0.5
-        
+            if action == Action.Sell.value:
+                if self._step_profit > 0:
+                    step_reward += self._step_profit * 0.4  # Ricompensa per profitto
+                else:
+                    step_reward -= abs(self._step_profit) * 0.5  # Penalità per perdita
+               
+            
 
 
-        #if self._last_trade_tick < self._current_tick/3:
-        step_reward -= (self._current_tick-self._last_trade_tick) * 7
 
-        self._reward_history.append([self._current_tick, step_reward, self._step_profit, self._total_profit])
 
-        return step_reward
+            # Penalità per l'inattività (tempo trascorso dall'ultima transazione)
+            if self._last_trade_tick is not None:
+                step_reward -= (self._current_tick - self._last_trade_tick) * 0.1  # Adatta la penalità
+
+            # Registra la ricompensa
+            self._reward_history.append([self._current_tick, step_reward, self._step_profit, self._total_profit])
+
+            return step_reward
         
 
     def _update_profit(self, action):
@@ -122,6 +120,7 @@ class CustomStocksEnv(TradingEnv):
         """
         self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_buy])
         self._total_profit = self._actual_budget - self.initial_balance
+
 
     def _get_observation(self):
         """
@@ -189,13 +188,12 @@ class CustomStocksEnv(TradingEnv):
 
             # Calcoliamo il profitto data l'azione scelta
             self._update_profit(action)
-
+           
             # Rimuoviamo il primo elmento della lista degli asset acquistati 
             # (da rivedere, perché dovrebbe vendere l'asset che ha acquistato al prezzo più basso)
-            self._purchased_assets.pop(0)
+            self._purchased_assets.pop(-1) 
             
-            # Settiamo la posizione a Long
-            self._position = Position.Long
+            self._position = Position.Short # Correzione perche dopo una vendita non ci sono piu posizioni aperte ne long e ne short (carmine)
             self._done_deal = True
             self._last_trade_tick = self._current_tick
 
@@ -231,6 +229,8 @@ class CustomStocksEnv(TradingEnv):
         self._last_trade_tick = 0
         self._last_buy = 0
         self._reward_history = []
+        self._position = Position.Flat  # Reset della posizione
+        self._truncated = False  # Reset del flag truncated
         return obs, info
 
     def print_env_var(self, step_reward, action):
