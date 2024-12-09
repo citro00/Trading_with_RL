@@ -2,6 +2,7 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque
 import utils as ut
@@ -10,6 +11,18 @@ from action import Action
 from position import Position
 from custom_env import CustomStocksEnv
 
+class DQN(nn.Module):
+
+    def __init__(self, n_observation, n_actions):
+        super(DQN, self).__init__()
+        self.layer1 = nn.Linear(n_observation, 128)
+        self.layer2 = nn.Linear(128, 128)
+        self.layer3 = nn.Linear(128, n_actions)
+
+    def forward(self, x):
+        x = F.relu(self.layer1(x))
+        x = F.relu(self.layer2(x))
+        return self.layer3(x)
 class Agent:
     def __init__(self, state_size, action_size, batch_size, device):
         # Inizializza la dimensione dello stato e delle azioni
@@ -26,18 +39,21 @@ class Agent:
         self.epsilon_decay = 0.999  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
 
         # Definizione del modello di rete neurale (Q-Network) che rappresenta la policy dell'agente
-        self.model = nn.Sequential(
-            nn.Linear(self.state_size, 256),  # Layer denso che mappa dallo stato a 256 neuroni
-            nn.ReLU(),  # Funzione di attivazione non lineare ReLU
-            nn.Linear(256, self.action_size)  # Layer finale che restituisce i valori Q per ogni azione
-        ).to(self.device)
+        # self.model = nn.Sequential(
+        #     nn.Linear(self.state_size, 256),  # Layer denso che mappa dallo stato a 256 neuroni
+        #     nn.ReLU(),  # Funzione di attivazione non lineare ReLU
+        #     nn.Linear(256, self.action_size)  # Layer finale che restituisce i valori Q per ogni azione
+        # ).to(self.device)
+        self.model = DQN(self.state_size, self.action_size).to(self.device)
 
         # Modello target: utilizzato per la stabilità del processo di apprendimento
-        self.target_model = nn.Sequential(
-            nn.Linear(self.state_size, 256),
-            nn.ReLU(),
-            nn.Linear(256, self.action_size)
-        ).to(self.device)
+        # self.target_model = nn.Sequential(
+        #     nn.Linear(self.state_size, 256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, self.action_size)
+        # ).to(self.device)
+        self.target_model = DQN(self.state_size, self.action_size).to(self.device)
+
         self.target_model.load_state_dict(self.model.state_dict())  # Inizializza il modello target con i pesi del modello principale
         self.target_model.eval()  # Il modello target viene usato solo per valutazione, non per addestramento
 
@@ -46,8 +62,8 @@ class Agent:
         self.loss_fn = nn.SmoothL1Loss()  # Funzione di perdita Huber Loss, utile per gestire outliers nelle ricompense 
 
         # Inizializzazione dei pesi della rete neurale
-        self.model.apply(self.init_weights)
-        self.target_model.apply(self.init_weights)
+        # self.model.apply(self.init_weights)
+        # self.target_model.apply(self.init_weights)
 
     def init_weights(self, m):
         """
@@ -91,19 +107,19 @@ class Agent:
         Restituisce il valore della loss.
         """
         # Controlla se ci sono abbastanza esperienze nella memoria per un batch completo
-        #if len(self.memory) < self.batch_size:
-            #return None
+        if len(self.memory) < self.batch_size:
+            return
 
-        batch = min(len(self.memory), self.batch_size)
+        # batch = min(len(self.memory), self.batch_size)
         # Preleva un minibatch casuale dalla memoria
-        minibatch = random.sample(self.memory, batch)
+        minibatch = random.sample(self.memory, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*minibatch)
 
         # Converti tutti i dati del batch in tensor di PyTorch
-        states = torch.tensor(np.array(states), dtype=torch.float32).to(self.device)
+        states = torch.tensor(states, dtype=torch.float32).to(self.device)
         actions = torch.tensor(actions, dtype=torch.long).unsqueeze(1).to(self.device)
         rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
-        next_states = torch.tensor(np.array(next_states), dtype=torch.float32).to(self.device)
+        next_states = torch.tensor(next_states, dtype=torch.float32).to(self.device)
         dones = torch.tensor(dones, dtype=torch.bool).to(self.device)
 
         # Calcola i valori Q attuali per le azioni selezionate nel batch
@@ -111,7 +127,7 @@ class Agent:
 
         # Calcola i valori Q futuri utilizzando il modello target
         with torch.no_grad():
-            max_next_q = self.target_model(next_states).max(1)[0]
+            max_next_q = self.target_model(next_states).max(1).values
 
         # Calcola i target Q: reward attuale + gamma * valore futuro (se non terminale)
         target_q = rewards + (self.gamma * max_next_q * (~dones))
@@ -142,6 +158,7 @@ class Agent:
         for episode in range(1, episodes + 1):
             # Resetta l'ambiente all'inizio di ogni episodio
             state, info = env.reset()
+            #env.render()
             state = ut.state_formatter(state)
             done = False
             total_loss = 0
@@ -166,6 +183,8 @@ class Agent:
                     total_loss += loss
                     loss_count += 1
                 print(f"Loss: {loss}")
+
+                #env.render()
 
             # Calcola e stampa la perdita media dell'episodio
             average_loss = total_loss / loss_count if loss_count > 0 else 0
