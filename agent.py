@@ -189,7 +189,7 @@ class Agent:
             # Calcola e stampa la perdita media dell'episodio
             average_loss = total_loss / loss_count if loss_count > 0 else 0
             print(f"Episode {episode}/{episodes} - Total Profit: {info['total_profit']:.2f} - Average Loss: {average_loss:.4f} - Loss: {loss} - Epsilon: {self.epsilon:.4f}")
-            env.render()
+
         print("Addestramento completato.")
 
     def evaluate_agent(self, env:TradingEnv): #todo implemetn
