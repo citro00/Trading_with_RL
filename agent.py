@@ -237,7 +237,8 @@ class Agent:
             average_loss = np.sum(loss_history) / len(loss_history) if len(loss_history) else 0
 
             print(f"Episode {episode}/{episodes} - Total Profit: {info['total_profit']:.2f} - Average Loss: {average_loss:.4f} - Loss: {loss} - Epsilon: {self.epsilon:.4f}")
-            self.plot_metrics(info['total_profit'], info['step_profit'], info['total_reward'], info['step_reward'], loss_history)
+            history = env.history
+            self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history)
 
         print("Addestramento completato.")
 
