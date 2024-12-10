@@ -97,7 +97,7 @@ class CustomStocksEnv(TradingEnv):
                     step_reward -= abs(self._step_profit) * 0.5  # Penalità per perdita
                 
                 if self._total_profit <= 0:
-                    step_reward -= abs(self._total_profit) * 0.02 
+                    step_reward -= self._total_profit * 0.02 # togliere nel caso
                
             if action==Action.Hold.value and self._position==Position.Long.value and self.prices[self._current_tick] > self.prices[self._last_buy]:
                 step_reward += (self.prices[self._current_tick]- self.prices[self._last_buy])
