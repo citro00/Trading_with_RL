@@ -1,6 +1,6 @@
 from enum import Enum
 
-class Position(Enum):
+class Positions(Enum):
     Short = 0 
     Long = 1
     Flat = 2

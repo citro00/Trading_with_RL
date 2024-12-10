@@ -8,9 +8,8 @@ from collections import deque
 import utils as ut
 from gym_anytrading.envs import TradingEnv
 from action import Action
-from position import Position
-from custom_env import CustomStocksEnv
-
+import matplotlib.pyplot as plt
+import matplotlib.axes
 class DQN(nn.Module):
 
     def __init__(self, n_observation, n_actions, hidden_layer_dim=128):
@@ -64,6 +63,54 @@ class Agent:
         # Inizializzazione dei pesi della rete neurale
         # self.model.apply(self.init_weights)
         # self.target_model.apply(self.init_weights)
+
+        # Plots
+        self.plots: dict[str, matplotlib.axes.Axes] = None
+        self.fig = None
+
+    def init_plots(self):
+        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3)
+        self.plots = {
+            'total_profit': ax1,
+            'step_profit': ax2,
+            'total_reward': ax3,
+            'step_reward': ax4,
+            'loss': ax5
+        }
+
+        self.plots['total_profit'].set_title("Total Profit")
+        self.plots['total_profit'].set_xlabel("Timesteps")
+        self.plots['total_profit'].set_ylabel("Profit")
+        
+        self.plots['step_profit'].set_title("Step Profit")
+        self.plots['step_profit'].set_xlabel("Timesteps")
+        self.plots['step_profit'].set_ylabel("Profit")
+
+        self.plots['total_reward'].set_title("Total Reward")
+        self.plots['total_reward'].set_xlabel("Timesteps")
+        self.plots['total_reward'].set_ylabel("Reward")
+
+        self.plots['step_reward'].set_title("Step Reward")
+        self.plots['step_reward'].set_xlabel("Timesteps")
+        self.plots['step_reward'].set_ylabel("Reward")
+
+        self.plots['loss'].set_title("Loss")
+        self.plots['loss'].set_xlabel("Timesteps")
+        self.plots['loss'].set_ylabel("Loss")
+
+        self.fig = fig
+
+    def plot_metrics(self, total_profits, step_profits, total_rewards, step_rewards, losses):
+        if not self.plots:
+            self.init_plots()
+
+        self.plots['total_profit'].plot(total_profits)
+        self.plots['step_profit'].plot(step_profits)
+        self.plots['total_reward'].plot(total_rewards)
+        self.plots['step_reward'].plot(step_rewards)
+        self.plots['loss'].plot(losses)
+
+        plt.show()
 
     def init_weights(self, m):
         """
@@ -161,9 +208,8 @@ class Agent:
             # env.render()
             state = ut.state_formatter(state)
             done = False
-            total_loss = 0
-            loss_count = 0
-
+            loss_history = [] #TODO: loss per timestep vs loss per episodio
+            
             # Ciclo fino a che l'episodio non termina
             while not done:
                 action = self.act(state)  # L'agente decide un'azione
@@ -180,15 +226,18 @@ class Agent:
                 # Addestra la rete con l'esperienza memorizzata
                 loss = self.replay()
                 if loss is not None:
-                    total_loss += loss
-                    loss_count += 1
+                    # total_loss += loss
+                    # loss_count += 1
+                    loss_history.append(loss)
                 print(f"Loss: {loss}")
-
                 # env.render()
 
             # Calcola e stampa la perdita media dell'episodio
-            average_loss = total_loss / loss_count if loss_count > 0 else 0
+            # average_loss = total_loss / loss_count if loss_count > 0 else 0
+            average_loss = np.sum(loss_history) / len(loss_history) if len(loss_history) else 0
+
             print(f"Episode {episode}/{episodes} - Total Profit: {info['total_profit']:.2f} - Average Loss: {average_loss:.4f} - Loss: {loss} - Epsilon: {self.epsilon:.4f}")
+            self.plot_metrics(info['total_profit'], info['step_profit'], info['total_reward'], info['step_reward'], loss_history)
 
         print("Addestramento completato.")
 

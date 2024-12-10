@@ -3,8 +3,9 @@ import pandas as pd
 from gym_anytrading.envs import TradingEnv
 from gymnasium import spaces
 from sklearn.preprocessing import StandardScaler
-from action import *
-from position import *
+from action import Action
+# from position import *
+from position import Positions
 
 class CustomStocksEnv(TradingEnv):
     """
@@ -26,15 +27,15 @@ class CustomStocksEnv(TradingEnv):
         self.initial_balance = initial_balance
         self._terminate = None
         self._step_profit = None
+        self._step_reward = None
         self._actual_budget = None
         self._purchased_assets = None
         self._done_deal = None
         self._last_trade_tick = None
         self._last_buy = None
-        self._reward_history = None
         
         # Inizializza la posizione come Flat
-        self._position = Position.Flat #AGGIUNTO DA ME CARMINE
+        self._position = Positions.Flat #AGGIUNTO DA ME CARMINE
 
         # Richiama il costruttore della classe base (TradingEnv)
         super().__init__(df=df, window_size=window_size)
@@ -99,13 +100,13 @@ class CustomStocksEnv(TradingEnv):
                 if self._total_profit <= 0:
                     step_reward -= self._total_profit * 0.02
                
-            if action==Action.Hold.value and self._position==Position.Long.value and self.prices[self._current_tick] > self.prices[self._last_buy]:
+            if action==Action.Hold.value and self._position==Positions.Long.value and self.prices[self._current_tick] > self.prices[self._last_buy]:
                 step_reward += (self.prices[self._current_tick]- self.prices[self._last_buy])
-            elif action==Action.Hold.value and self._position==Position.Long.value and self.prices[self._current_tick] <= self.prices[self._last_buy]:
+            elif action==Action.Hold.value and self._position==Positions.Long.value and self.prices[self._current_tick] <= self.prices[self._last_buy]:
                 step_reward -= abs(self.prices[self._current_tick]- self.prices[self._last_buy])*0.2
-            elif action==Action.Hold.value and self._position==Position.Short.value and self.prices[self._current_tick] < self.prices[self._last_buy]:
+            elif action==Action.Hold.value and self._position==Positions.Short.value and self.prices[self._current_tick] < self.prices[self._last_buy]:
                 step_reward += (self.prices[self._current_tick]- self.prices[self._last_buy])
-            elif action==Action.Hold.value and self._position==Position.Short.value and self.prices[self._current_tick] >= self.prices[self._last_buy]:
+            elif action==Action.Hold.value and self._position==Positions.Short.value and self.prices[self._current_tick] >= self.prices[self._last_buy]:
                step_reward -= abs(self.prices[self._current_tick]- self.prices[self._last_buy])*0.2
 
 
@@ -114,7 +115,7 @@ class CustomStocksEnv(TradingEnv):
                 step_reward -= (self._current_tick - self._last_trade_tick) * 0.1  # Adatta la penalità
 
             # Registra la ricompensa
-            self._reward_history.append([self._current_tick, step_reward, self._step_profit, self._total_profit])
+            self._reward_history.append([self._current_tick, step_reward, self._step_profit, self._total_profit]) # TODO: rimuovere (Vincenzo)
 
             return step_reward
         
@@ -158,7 +159,8 @@ class CustomStocksEnv(TradingEnv):
         # Reset parametri iniziali
         self._terminate = False
         self._current_tick += 1
-        self._step_profit = 0
+        self._step_profit = 0.
+        self._step_reward = 0.
         self._done_deal = False
 
         # Controllimao che l'episodio non sia terminato
@@ -182,7 +184,7 @@ class CustomStocksEnv(TradingEnv):
             self._purchased_assets.append(self.prices[self._current_tick])
 
             # Settiamo la posizione a Long
-            self._position = Position.Long
+            self._position = Positions.Long
 
             # Aggiorna last_trade
             self._last_trade_tick = self._current_tick
@@ -201,26 +203,36 @@ class CustomStocksEnv(TradingEnv):
             # (da rivedere, perché dovrebbe vendere l'asset che ha acquistato al prezzo più basso)
             self._purchased_assets.pop(-1) 
             
-            self._position = Position.Short # Correzione perche dopo una vendita non ci sono piu posizioni aperte ne long e ne short (carmine)
+            self._position = Positions.Short # Correzione perche dopo una vendita non ci sono piu posizioni aperte ne long e ne short (carmine)
             self._done_deal = True
             self._last_trade_tick = self._current_tick
 
         # Calcoliamo la reard
-        step_reward = self._calculate_reward(action)
+        self._step_reward = self._calculate_reward(action)
         
         # Aggiorniamo la reward totale totale dell'episodio
-        self._total_reward += step_reward
+        self._total_reward += self._step_reward
 
+        self._position_history.append(self._position)
         observation = self._get_observation()
         info = self._get_info()
         self._update_history(info)
 
         if self.render_mode == 'human':
-            self._render_frame()
+            self._render_frame() 
 
-        self.print_env_var(step_reward, action)
+        self.print_env_var(action)
 
-        return observation, step_reward, self._terminate, self._truncated, info
+        return observation, self._step_reward, self._terminate, self._truncated, info
+
+    def _get_info(self):
+        return dict(
+            step_reward  = self._step_reward,
+            total_reward = self._total_reward,
+            step_profit  = self._step_profit,
+            total_profit = self._total_profit,
+            position     = self._position
+        )
 
     def reset(self):
         """
@@ -229,19 +241,20 @@ class CustomStocksEnv(TradingEnv):
         :return: L'osservazione iniziale e le informazioni dell'ambiente.
         """
         obs, info = super().reset()
-        self._total_profit = 0
-        self._step_profit = 0
-        self._total_reward = 0
+        self._total_profit = 0.
+        self._step_profit = 0.
+        self._total_reward = 0.
+        self._step_reward = 0.
         self._actual_budget = self.initial_balance
         self._purchased_assets = []
         self._last_trade_tick = 0
         self._last_buy = 0
-        self._reward_history = []
-        self._position = Position.Flat  # Reset della posizione
+        self._reward_history = []  # TODO: rimuovere (Vincenzo)
+        self._position = Positions.Short  # Reset della posizione
         self._truncated = False  # Reset del flag truncated
         return obs, info
 
-    def print_env_var(self, step_reward, action):
+    def print_env_var(self, action):
         print("##############################################")
         print(f"Intial Balance: {self.initial_balance}\n"+\
               #f"Terminate: {self._terminate}\n"+\
@@ -259,7 +272,7 @@ class CustomStocksEnv(TradingEnv):
               f"Last buy tick: {self._last_buy}\n")
               #f"Position: {self._position}\n"+\
               #f"Total reward: {self._total_reward}\n"+\
-              #f"Step reward: {step_reward}
+              #f"Step reward: {self._step_reward}
 
     def get_current_tick(self):
         """
@@ -277,5 +290,7 @@ class CustomStocksEnv(TradingEnv):
     
 
     def save_reward_history(self, name):
-        reward_history = pd.DataFrame(self._reward_history, columns=['Tick', 'Reward', 'Step_profit', 'Total_profit'])
-        reward_history.to_csv(f'./csv/{name}')
+        # reward_history = pd.DataFrame(self._reward_history, columns=['Tick', 'Reward', 'Step_profit', 'Total_profit'])
+        # reward_history.to_csv(f'./csv/{name}')
+        history = pd.DataFrame.from_dict(self.history)
+        history.to_csv(f'./csv/{name}')
