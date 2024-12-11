@@ -35,7 +35,7 @@ class Agent:
         self.gamma = 0.95  # Fattore di sconto per il valore delle ricompense future (0 < gamma < 1)
         self.epsilon = 1.0  # Probabilità iniziale di esplorazione (tasso di esplorazione)
         self.epsilon_min = 0.01  # Probabilità minima di esplorazione
-        self.epsilon_decay = 0.999  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
+        self.epsilon_decay = 0.9995  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
 
         # Definizione del modello di rete neurale (Q-Network) che rappresenta la policy dell'agente
         # self.model = nn.Sequential(
@@ -43,7 +43,7 @@ class Agent:
         #     nn.ReLU(),  # Funzione di attivazione non lineare ReLU
         #     nn.Linear(256, self.action_size)  # Layer finale che restituisce i valori Q per ogni azione
         # ).to(self.device)
-        self.model = DQN(self.state_size, self.action_size, 64).to(self.device)
+        self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         # Modello target: utilizzato per la stabilità del processo di apprendimento
         # self.target_model = nn.Sequential(
@@ -51,7 +51,7 @@ class Agent:
         #     nn.ReLU(),
         #     nn.Linear(256, self.action_size)
         # ).to(self.device)
-        self.target_model = DQN(self.state_size, self.action_size, 64).to(self.device)
+        self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         self.target_model.load_state_dict(self.model.state_dict())  # Inizializza il modello target con i pesi del modello principale
         self.target_model.eval()  # Il modello target viene usato solo per valutazione, non per addestramento
@@ -216,6 +216,7 @@ class Agent:
                 # Esegui l'azione nell'ambiente
                 next_state, reward, terminated, truncated, info = env.step(action)
                 print(f"Epsilon: {self.epsilon}")
+                print(f"Episodio: {episode}")
                 done = terminated or truncated
                 next_state = ut.state_formatter(next_state)
 
@@ -238,7 +239,8 @@ class Agent:
 
             print(f"Episode {episode}/{episodes} - Total Profit: {info['total_profit']:.2f} - Average Loss: {average_loss:.4f} - Loss: {loss} - Epsilon: {self.epsilon:.4f}")
             history = env.history
-            self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history)
+            if episode==episodes:
+                self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history)
 
         print("Addestramento completato.")
 
@@ -276,4 +278,4 @@ class Agent:
 
         # Stampa il profitto totale ottenuto durante la valutazione
         print(f"Valutazione - Total Profit: {total_profit:.2f}")
-        return states_buy, states_sell, total_profit
+        return states_buy, states_sell, total_profit, total_reward

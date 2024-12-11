@@ -74,7 +74,7 @@ class CustomStocksEnv(TradingEnv):
         # Estrai le feature che serviranno come input per l'agente (Close e Volume)
         diff = np.insert(np.diff(df['Close']), 0, 0)
 
-        signal_features = np.column_stack((prices))
+        signal_features = np.column_stack((prices,diff))
         #signal_features = df['Close'].to_numpy()
         # Normalizza le feature per avere valori con media 0 e deviazione standard 1
         scaler = StandardScaler()
@@ -91,74 +91,21 @@ class CustomStocksEnv(TradingEnv):
             """
             step_reward = 0
 
-            '''if action == Action.Sell.value:
-                if self._step_profit > 0:
-                    step_reward += self._step_profit * 0.4  # Ricompensa per profitto
-                else:
-                    step_reward -= abs(self._step_profit) * 0.5  # Penalità per perdita
-                
-                if self._total_profit <= 0:
-                    step_reward -= self._total_profit * 0.02
-               
-            if action==Action.Hold.value and self._position==Positions.Long.value and self.prices[self._current_tick] > self.prices[self._last_buy]:
-                step_reward += (self.prices[self._current_tick]- self.prices[self._last_buy])
-            elif action==Action.Hold.value and self._position==Positions.Long.value and self.prices[self._current_tick] <= self.prices[self._last_buy]:
-                step_reward -= abs(self.prices[self._current_tick] - self.prices[self._last_buy])*0.2
-            elif action==Action.Hold.value and self._position==Positions.Short.value and self.prices[self._current_tick] < self.prices[self._last_buy]:
-                step_reward += (self.prices[self._current_tick] - self.prices[self._last_buy])
-            elif action==Action.Hold.value and self._position==Positions.Short.value and self.prices[self._current_tick] >= self.prices[self._last_buy]:
-               step_reward -= abs(self.prices[self._current_tick] - self.prices[self._last_buy])*0.2
-
+            if action == Action.Sell.value and self._total_profit <= 0:
+                step_reward -= 0.3
+            elif action == Action.Sell.value and self._total_profit > 0:
+                step_reward += 0.2
 
             # Penalità per l'inattività (tempo trascorso dall'ultima transazione)
             if self._last_trade_tick is not None:
                 step_reward -= (self._current_tick - self._last_trade_tick) * 0.1  # Adatta la penalità
-
-            # Registra la ricompensa
-            self._reward_history.append([self._current_tick, step_reward, self._step_profit, self._total_profit]) # TODO: rimuovere (Vincenzo)'''
             
-            '''if self._total_profit <= 0:
-                step_reward -= abs(self._total_profit) * 0.01
-            elif self._total_profit > 0:
-                step_reward += self._total_profit * 0.02'''
-            
-            """
-            Calcola la ricompensa basata sull'azione eseguita.
-            :param action: Azione eseguita dall'agente.
-            :return: Ricompensa del passo.
-            """
-            step_reward = 0
+            step_reward -= 0.01
 
-            '''if action == Action.Sell.value:
-                if self._step_profit > 0:
-                    step_reward += self._step_profit * 0.8  # Ricompensa per profitto 
-                else:
-                    step_reward -= abs(self._step_profit) * 0.9  # Penalità per perdita'''
-
-            if self._total_profit <= 0:
-                step_reward -= abs(self._total_profit) * 0.0002
+            if not self._done_deal:
+                step_reward -= 0.1
             else:
-                step_reward += self._total_profit * 0.0005
-
-            if action == Action.Hold.value and self._position == Positions.Long.value:
-                if self.prices[self._current_tick] > self.prices[self._last_buy]:
-                    # Profitto in caso di posizione long con prezzo in aumento
-                    step_reward += (self.prices[self._current_tick] - self.prices[self._last_buy]) * 0.004
-                else:
-                    # Penalità in caso di prezzo decrescente o invariato in posizione long
-                    step_reward -= abs(self.prices[self._current_tick] - self.prices[self._last_buy]) * 0.003
-
-            '''elif action == Action.Hold.value and self._position == Positions.Short.value:
-                if self.prices[self._current_tick] < self.prices[self._last_buy]:
-                    # Profitto per lo short: prezzo entrata - prezzo attuale
-                    step_reward += (self.prices[self._last_buy] - self.prices[self._current_tick]) * 0.004
-                else:
-                    # Penalità se il prezzo sale in posizione short
-                    step_reward -= abs(self.prices[self._current_tick] - self.prices[self._last_buy]) * 0.003'''
-
-            # Penalità per l'inattività (tempo trascorso dall'ultima transazione)
-            if self._last_trade_tick is not None:
-                step_reward -= (self._current_tick - self._last_trade_tick) * 0.05  # Adatta la penalità
+                step_reward += 0.2
 
             return step_reward
 
@@ -192,7 +139,6 @@ class CustomStocksEnv(TradingEnv):
             end = len(self.signal_features)
 
         obs = self.signal_features[start:end]
-
         # Aggiungi padding se l'osservazione è inferiore alla dimensione della finestra
         if len(obs) < self.window_size:
             padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
@@ -218,40 +164,12 @@ class CustomStocksEnv(TradingEnv):
 
         if action == Action.Buy.value and self._actual_budget >= self.prices[self._current_tick]:
             # Se l'azione selezionata è buy e il budget disponibile è superiore al prezzo corrente dell'asset: 
-            
-            # Sottraiamo dal budget attuale il prezzo dell'asset (compriamo)
-            num_action = round(self._actual_budget/self.prices[self._current_tick])-1
-            self._actual_budget -= (self.prices[self._current_tick]*num_action)
+            self.buy()
 
-            # Salviamo il tick corrente come il tick in cui è stato effettuata l'ultima compera
-            self._last_buy = self._current_tick
-
-            # Aggiungiamo il prezzo corrente alla lista delle azioni acquistate
-            for i in range(0, num_action):
-                self._purchased_assets.append(self.prices[self._current_tick])
-
-            # Settiamo la posizione a Long
-            self._position = Positions.Long
-
-            # Aggiorna last_trade
-            self._last_trade_tick = self._current_tick
-
-            self._done_deal = True
         elif action == Action.Sell.value and len(self._purchased_assets)>0:
             # Se l'azione selezionata è sell e la lista degli asset acquistati non è vuota:
-        
-            # Aggiornamo il budget attuale aggiungendo il prezzo attuale dell'asset a cui lo stiamo vendendo  
-            self._actual_budget += (self.prices[self._current_tick] * len(self._purchased_assets))
-           
-            # Rimuoviamo il primo elmento della lista degli asset acquistati 
-            # (da rivedere, perché dovrebbe vendere l'asset che ha acquistato al prezzo più basso)
-            #self._purchased_assets = sorted(self._purchased_assets)
-            self._purchased_assets.clear()
+            self.sell()
             
-            self._position = Positions.Short # Correzione perche dopo una vendita non ci sono piu posizioni aperte ne long e ne short (carmine)
-            self._done_deal = True
-            self._last_trade_tick = self._current_tick
-
         # Calcoliamo il profitto data l'azione scelta
         self._update_profit()
 
@@ -272,6 +190,42 @@ class CustomStocksEnv(TradingEnv):
         self.print_env_var(action)
 
         return observation, self._step_reward, self._terminate, self._truncated, info
+    
+    def buy(self):
+        # Sottraiamo dal budget attuale il prezzo dell'asset (compriamo)
+        num_action = round(self._actual_budget/self.prices[self._current_tick])-1
+
+        if num_action <= 1:
+            num_action = 1
+        
+        self._actual_budget -= (self.prices[self._current_tick]*num_action)
+        
+        # Salviamo il tick corrente come il tick in cui è stato effettuata l'ultima compera
+        self._last_buy = self._current_tick
+        
+        # Aggiungiamo il prezzo corrente alla lista delle azioni acquistate
+        for i in range(0, num_action):
+            self._purchased_assets.append(self.prices[self._current_tick])
+        
+        # Settiamo la posizione a Long
+        self._position = Positions.Long
+        
+        # Aggiorna last_trade
+        self._last_trade_tick = self._current_tick
+        self._done_deal = True
+
+    def sell(self):
+        # Aggiornamo il budget attuale aggiungendo il prezzo attuale dell'asset a cui lo stiamo vendendo  
+        self._actual_budget += (self.prices[self._current_tick] * len(self._purchased_assets))
+        
+        # Rimuoviamo il primo elmento della lista degli asset acquistati 
+        # (da rivedere, perché dovrebbe vendere l'asset che ha acquistato al prezzo più basso)
+        #self._purchased_assets = sorted(self._purchased_assets)
+        self._purchased_assets.clear()
+        
+        self._position = Positions.Short # Correzione perche dopo una vendita non ci sono piu posizioni aperte ne long e ne short (carmine)
+        self._done_deal = True
+        self._last_trade_tick = self._current_tick
 
     def _get_info(self):
         return dict(
@@ -288,7 +242,6 @@ class CustomStocksEnv(TradingEnv):
 
         :return: L'osservazione iniziale e le informazioni dell'ambiente.
         """
-        obs, info = super().reset(seed=seed)
         self._total_profit = 0.
         self._step_profit = 0.
         self._total_reward = 0.
@@ -300,6 +253,7 @@ class CustomStocksEnv(TradingEnv):
         self._reward_history = []  # TODO: rimuovere (Vincenzo)
         self._position = Positions.Short  # Reset della posizione
         self._truncated = False  # Reset del flag truncated
+        obs, info = super().reset(seed=seed)
         return obs, info
 
     def print_env_var(self, action):
@@ -317,10 +271,10 @@ class CustomStocksEnv(TradingEnv):
               #f"Wallet value: {self._wallet_value}\n"+\
               #f"Type of wallet_vale var: {type(self._wallet_value)}\n"+\
               f"Current tick: {self._current_tick}\n"+\
-              f"Last buy tick: {self._last_buy}\n")
+              f"Last buy tick: {self._last_buy}\n"+\
               #f"Position: {self._position}\n"+\
-              #f"Total reward: {self._total_reward}\n"+\
-              #f"Step reward: {self._step_reward}
+              f"Total reward: {self._total_reward}\n"+\
+              f"Step reward: {self._step_reward}")
 
     def get_current_tick(self):
         """
@@ -334,9 +288,8 @@ class CustomStocksEnv(TradingEnv):
         return self._done_deal
     
     def get_total_profit(self):
-        return self._total_profit
+        return self._total_profit + (self.prices[self._current_tick]*len(self._purchased_assets))
     
-
     def save_reward_history(self, name):
         # reward_history = pd.DataFrame(self._reward_history, columns=['Tick', 'Reward', 'Step_profit', 'Total_profit'])
         # reward_history.to_csv(f'./csv/{name}')

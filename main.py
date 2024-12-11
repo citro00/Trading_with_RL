@@ -15,7 +15,8 @@ data = ut.download(symbol, start_date, end_date)
 data = ut.cleaning(data)
 
 window_size = 30
-frame_bound = (window_size, len(data)//2)
+end_frame = (len(data)//4)*3
+frame_bound = (window_size, end_frame)
 initial_balance = 10000
 
 print("Inizializzazione dell'ambiente...")
@@ -42,7 +43,7 @@ agent = Agent(
     device=device
 )
 
-episodes = 50
+episodes = 25
 agent.train_agent(env, episodes)
 env.save_reward_history("Reward_History_Training.csv")
 
@@ -53,12 +54,12 @@ env.save_reward_history("Reward_History_Training.csv")
 env = CustomStocksEnv(
     df=data,
     window_size=window_size,
-    frame_bound=((len(data)//2)+1, len(data)),
+    frame_bound=(end_frame+1, len(data)),
     initial_balance=initial_balance
 )
 
 print("Inizio valutazione dell'agente.")
-states_buy, states_sell, total_profit = agent.evaluate_agent(env)
+states_buy, states_sell, total_profit, total_reward = agent.evaluate_agent(env)
 print(f"Total Profit: {total_profit}")
 env.save_reward_history("Reward_history_evaluate.csv")
 
@@ -70,7 +71,7 @@ if states_buy:
 if states_sell:
     plt.plot(states_sell, env.prices[states_sell], 'v', markersize=10, color='k', label='Sell Signal')
 
-plt.title(f'Total Profit: {total_profit:.2f}')
+plt.title(f'Total Profit: {total_profit:.2f}; Total Reward: {total_reward}')
 plt.xlabel('Tick')
 plt.ylabel('Price')
 plt.legend()
