@@ -84,11 +84,8 @@ class CustomStocksEnv(TradingEnv):
         return prices, signal_features
 
     def _calculate_reward(self, action, time_step):
-            """
-            Calcola la ricompensa basata sull'azione eseguita.
-            :param action: Azione eseguita dall'agente.
-            :return: Ricompensa del passo.
-            """
+        """
+            VECCHIA VERSIONE
             step_reward = 0
 
             if action == Action.Sell.value and self._total_profit <= 0:
@@ -106,9 +103,58 @@ class CustomStocksEnv(TradingEnv):
                 step_reward -= 0.1
             else:
                 step_reward += 0.2
+        """
+        step_reward = 0
 
-            return step_reward
+        # Se l'agente vende con un profitto in corso, ottiene una ricompensa positiva.
+        # Se vende in perdita, subisce una penalità.
+        if action == Action.Sell.value:
+            if self._step_profit > 0:
+                step_reward += 0.2   
+            else:
+                step_reward -= 0.3  
 
+        # Se il profitto totale è negativo o nullo, penalità.
+        # Se è positivo, ricompensa.
+        if self._total_profit <= 0:
+            step_reward -= 0.05  
+        else:
+            step_reward += 0.1  
+
+        # Se il prezzo attuale è maggiore del prezzo di acquisto, ricompensa fissa.
+        # Altrimenti, penalità fissa.
+        if action == Action.Hold.value and self._position == Positions.Long.value:
+            if self.prices[self._current_tick] > self.prices[self._last_buy]:
+                step_reward += 0.05  
+            else:
+                step_reward -= 0.03 
+
+        # Se il prezzo attuale è minore del prezzo di vendita (short), ricompensa.
+        # Altrimenti, penalità.
+        elif action == Action.Hold.value and self._position == Positions.Short.value:
+            if self.prices[self._current_tick] < self.prices[self._last_buy]:
+                step_reward += 0.05  
+            else:
+                step_reward -= 0.03  
+
+        # Penalità per l'inattività (tempo trascorso dall'ultima transazione)
+        if self._last_trade_tick is not None:
+            step_reward -= (self._current_tick - self._last_trade_tick) * 0.1 #QUI NO
+
+        # Penalità generica fissa per mantenere un piccolo costo ad ogni step
+        step_reward -= 0.01
+
+        # Ricompensa o penalità a seconda che l'accordo (deal) sia completato o meno
+        # Se non è concluso, penalità; se è concluso, ricompensa.
+        if not self._done_deal:
+            step_reward -= 0.1
+        else:
+            step_reward += 0.2
+
+        return step_reward
+            
+            
+            
     def _update_profit(self):
         """
         Aggiorna il profitto totale e calcola la ricompensa in base all'azione eseguita.

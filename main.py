@@ -43,7 +43,7 @@ agent = Agent(
     device=device
 )
 
-episodes = 25
+episodes = 50
 agent.train_agent(env, episodes)
 env.save_reward_history("Reward_History_Training.csv")
 
