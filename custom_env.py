@@ -136,7 +136,7 @@ class CustomStocksEnv(TradingEnv):
             
             
             
-    def _update_profit(self):
+    def _update_profit(self, action) :
         """
         Aggiorna il profitto totale e calcola la ricompensa in base all'azione eseguita.
 
@@ -145,8 +145,8 @@ class CustomStocksEnv(TradingEnv):
         """
         
         self._total_profit = self._actual_budget - self.initial_balance
-
-        #self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_buy])
+        if action == Action.Sell.value:
+          self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_buy])
         #self._total_profit = self._actual_budget - self.initial_balance
 
 
@@ -198,7 +198,7 @@ class CustomStocksEnv(TradingEnv):
             self.sell()
             
         # Calcoliamo il profitto data l'azione scelta
-        self._update_profit()
+        self._update_profit(action)
 
         # Calcoliamo la reard
         self._step_reward = self._calculate_reward(action, self._current_tick)
