@@ -84,26 +84,7 @@ class CustomStocksEnv(TradingEnv):
         return prices, signal_features
 
     def _calculate_reward(self, action, time_step):
-        """
-            VECCHIA VERSIONE
-            step_reward = 0
-
-            if action == Action.Sell.value and self._total_profit <= 0:
-                step_reward -= 0.3
-            elif action == Action.Sell.value and self._total_profit > 0:
-                step_reward += 0.2
-
-            # Penalità per l'inattività (tempo trascorso dall'ultima transazione)
-            if self._last_trade_tick is not None:
-                step_reward -= (self._current_tick - self._last_trade_tick) * 0.1  # Adatta la penalità
-            
-            step_reward -= 0.01
-
-            if not self._done_deal:
-                step_reward -= 0.1
-            else:
-                step_reward += 0.2
-        """
+    
         step_reward = 0
 
         # Se l'agente vende con un profitto in corso, ottiene una ricompensa positiva.

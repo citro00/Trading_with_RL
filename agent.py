@@ -108,18 +108,6 @@ class Agent:
             nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')  # Inizializza i pesi in base alla strategia di He
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)  # Inizializza i bias a 0
-
-    '''def act(self, state):
-        """
-        Decide un'azione basata sullo stato attuale.
-        """
-        # Converti lo stato in un tensor di PyTorch
-        state = torch.tensor(state, dtype=torch.float32).to(self.device)
-        with torch.no_grad():
-            q_values = self.model(state)  # Ottieni i valori Q per tutte le azioni
-        # Usa softmax per generare una distribuzione di probabilità tra le azioni
-        probabilities = torch.softmax(q_values, dim=0).cpu().numpy()
-        return np.random.choice(self.action_size, p=probabilities)  # Seleziona un'azione in base alla distribuzione'''
     
     def act(self, state):
         """Decide un'azione basata sullo stato attuale con una policy e-greedy"""
