@@ -36,21 +36,9 @@ class Agent:
         self.epsilon = 1.0  # Probabilità iniziale di esplorazione (tasso di esplorazione)
         self.epsilon_min = 0.01  # Probabilità minima di esplorazione
         self.epsilon_decay = 0.9995  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
-
-        # Definizione del modello di rete neurale (Q-Network) che rappresenta la policy dell'agente
-        # self.model = nn.Sequential(
-        #     nn.Linear(self.state_size, 256),  # Layer denso che mappa dallo stato a 256 neuroni
-        #     nn.ReLU(),  # Funzione di attivazione non lineare ReLU
-        #     nn.Linear(256, self.action_size)  # Layer finale che restituisce i valori Q per ogni azione
-        # ).to(self.device)
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         # Modello target: utilizzato per la stabilità del processo di apprendimento
-        # self.target_model = nn.Sequential(
-        #     nn.Linear(self.state_size, 256),
-        #     nn.ReLU(),
-        #     nn.Linear(256, self.action_size)
-        # ).to(self.device)
         self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         self.target_model.load_state_dict(self.model.state_dict())  # Inizializza il modello target con i pesi del modello principale
@@ -187,9 +175,6 @@ class Agent:
         loss.backward()
         self.optimizer.step()
 
-        # Aggiorna il modello target ogni 10 batch per stabilizzare l'apprendimento
-        if len(self.memory) % 10 == 0:
-            self.target_model.load_state_dict(self.model.state_dict())
 
         # Riduci il tasso di esplorazione (epsilon) per favorire l'uso delle azioni apprese
         if self.epsilon > self.epsilon_min:
@@ -232,7 +217,10 @@ class Agent:
                     loss_history.append(loss)
                 print(f"Loss: {loss}")
                 # env.render()
-
+            # Aggiorna il modello target ogni  5 episodi per stabilizzare l'apprendimento
+            if   episode % 5 == 0:
+                self.target_model.load_state_dict(self.model.state_dict())
+            
             # Calcola e stampa la perdita media dell'episodio
             # average_loss = total_loss / loss_count if loss_count > 0 else 0
             average_loss = np.sum(loss_history) / len(loss_history) if len(loss_history) else 0
