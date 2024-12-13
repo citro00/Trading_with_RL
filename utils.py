@@ -63,3 +63,11 @@ def state_formatter(state):
     else:
         print(f"Stato ricevuto in state_formatter: {state}, tipo: {type(state)}")
         raise ValueError("Formato dello stato non riconosciuto")
+
+def get_data_dict(start_date, end_date, ticks:list):
+    data_dict = dict()
+    for tick in ticks:
+        data_temp = download(tick, start_date, end_date)
+        data_temp = cleaning(data_temp)
+        data_dict[tick] = data_temp
+    return data_dict

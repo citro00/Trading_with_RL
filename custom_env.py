@@ -6,13 +6,14 @@ from sklearn.preprocessing import StandardScaler
 from action import Action
 # from position import *
 from position import Positions
+import random
 
 class CustomStocksEnv(TradingEnv):
     """
     Ambiente di trading personalizzato estendendo TradingEnv da gym_anytrading.
     """
 
-    def __init__(self, df, window_size, frame_bound, initial_balance=1000):
+    def __init__(self, df:dict, window_size, frame_bound, initial_balance=1000):
         """
         Inizializza l'ambiente personalizzato.
         
@@ -33,15 +34,19 @@ class CustomStocksEnv(TradingEnv):
         self._done_deal = None
         self._last_trade_tick = None
         self._last_buy = None
+<<<<<<< Updated upstream
         self.sell_rois = [] 
+=======
+
+        self.df_dict = df        
+>>>>>>> Stashed changes
         # Inizializza la posizione come Flat
         self._position = Positions.Flat #AGGIUNTO DA ME CARMINE
 
-        # Richiama il costruttore della classe base (TradingEnv)
-        super().__init__(df=df, window_size=window_size)
+        self._current_asset = random.choice(list(self.df_dict.keys()))
 
-        # Prepara i dati e crea le feature da usare come input per l'agente
-        self.prices, self.signal_features = self._process_data()
+        # Richiama il costruttore della classe base (TradingEnv)
+        super().__init__(df=self.df_dict[self._current_asset], window_size=window_size)
 
         # Definisce lo spazio delle azioni (0 = Hold, 1 = Buy, 2 = Sell)
         self.action_space = spaces.Discrete(len(Action))
@@ -67,13 +72,11 @@ class CustomStocksEnv(TradingEnv):
         start = self.frame_bound[0]
         end = self.frame_bound[1]
         df = self.df.iloc[start:end].reset_index(drop=True)
-
         # Estrai i prezzi di chiusura
         prices = df['Close'].to_numpy()
 
         # Estrai le feature che serviranno come input per l'agente (Close e Volume)
         diff = np.insert(np.diff(df['Close']), 0, 0)
-
         signal_features = np.column_stack((prices,diff))
         #signal_features = df['Close'].to_numpy()
         # Normalizza le feature per avere valori con media 0 e deviazione standard 1
@@ -85,7 +88,7 @@ class CustomStocksEnv(TradingEnv):
 
     def _calculate_reward(self, action, time_step):
     
-        step_reward = 0
+        '''step_reward = 0
 
         # Se l'agente vende con un profitto in corso, ottiene una ricompensa positiva.
         # Se vende in perdita, subisce una penalità.
@@ -132,9 +135,29 @@ class CustomStocksEnv(TradingEnv):
         else:
             step_reward += 0.2
 
-        return step_reward
+        return step_reward'''
             
-            
+        if action == Action.Sell.value and self._total_profit > 0 and self._done_deal:
+            return self.prices[self._current_tick]/self.prices[self._last_buy]
+        elif action == Action.Sell.value and self._total_profit <= 0 and self._done_deal:
+            return np.log(self.prices[self._current_tick]/self.prices[self._last_buy])+1
+
+        if action == Action.Hold.value and self.prices[self._current_tick] > self.prices[self._last_buy]:
+            return 2
+        elif action == Action.Hold.value and self.prices[self._current_tick] <= self.prices[self._last_buy]:
+            return -4
+        elif action == Action.Hold.value and self.prices[self._current_tick] < self.prices[self._last_trade_tick]:
+            return 1
+        elif action == Action.Hold.value and self.prices[self._current_tick] >= self.prices[self._last_trade_tick]:
+            return -2
+        
+        if action == Action.Buy.value and self._done_deal:
+            return np.log(self.prices[self._current_tick]/self.prices[self._last_trade_tick])
+        
+        if not self._done_deal:
+            return -3
+        
+        return 0
             
     def _update_profit(self, action) :
         """
@@ -196,6 +219,9 @@ class CustomStocksEnv(TradingEnv):
         elif action == Action.Sell.value and len(self._purchased_assets)>0:
             # Se l'azione selezionata è sell e la lista degli asset acquistati non è vuota:
             self.sell()
+        elif action == Action.Hold:
+            self._position = Positions.Flat
+            self._done_deal = True
             
         # Calcoliamo il profitto data l'azione scelta
         self._update_profit(action)
@@ -215,9 +241,13 @@ class CustomStocksEnv(TradingEnv):
             self._render_frame() 
 
         #self.print_env_var(action)
+<<<<<<< Updated upstream
         if self._terminate or self._truncated:
             info['sell_rois'] = self.sell_rois
             
+=======
+
+>>>>>>> Stashed changes
         return observation, self._step_reward, self._terminate, self._truncated, info
     
     def buy(self):
@@ -259,7 +289,8 @@ class CustomStocksEnv(TradingEnv):
             total_reward = self._total_reward,
             step_profit  = self._step_profit,
             total_profit = self._total_profit,
-            position     = self._position
+            position     = self._position,
+            asset = self._current_asset
         )
 
     def reset(self, seed=None):
@@ -268,6 +299,8 @@ class CustomStocksEnv(TradingEnv):
 
         :return: L'osservazione iniziale e le informazioni dell'ambiente.
         """
+        self._current_asset = random.choice(list(self.df_dict.keys()))
+        self.df = self.df_dict[self._current_asset]
         self._total_profit = 0.
         self._step_profit = 0.
         self._total_reward = 0.

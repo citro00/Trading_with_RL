@@ -36,7 +36,7 @@ class Agent:
         self.gamma = 0.95  # Fattore di sconto per il valore delle ricompense future (0 < gamma < 1)
         self.epsilon = 1.0  # Probabilità iniziale di esplorazione (tasso di esplorazione)
         self.epsilon_min = 0.01  # Probabilità minima di esplorazione
-        self.epsilon_decay = 0.9995  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
+        self.epsilon_decay = 0.9999  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         # Modello target: utilizzato per la stabilità del processo di apprendimento
@@ -170,7 +170,7 @@ class Agent:
         # Riduci il tasso di esplorazione (epsilon) per favorire l'uso delle azioni apprese
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
-
+            
         return loss.item()
 
     def train_agent(self, env:TradingEnv, episodes ):
@@ -223,6 +223,10 @@ class Agent:
             
             print(f"Episode {episode}/{episodes} #  ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
 
+<<<<<<< Updated upstream
+=======
+            print(f"Episode {episode}/{episodes} - Total Profit: {info['total_profit']:.2f} - Average Loss: {average_loss:.4f} - Loss: {loss} - Epsilon: {self.epsilon:.4f}; Asset: {info["asset"]}")
+>>>>>>> Stashed changes
             history = env.history
             if episode==episodes:
                 self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history)
@@ -239,6 +243,7 @@ class Agent:
         done = False
         states_buy = []
         states_sell = []
+        state_hold = []
         total_profit = 0
         total_reward = 0
 
@@ -254,6 +259,8 @@ class Agent:
                 states_buy.append(env.get_current_tick())
             elif action == Action.Sell.value and env.get_done_deal():
                 states_sell.append(env.get_current_tick())
+            elif action == Action.Hold.value:
+                state_hold.append(env.get_current_tick())
 
             state = next_state
             #print(f"Step reward: {reward}")
@@ -263,4 +270,4 @@ class Agent:
 
         # Stampa il profitto totale ottenuto durante la valutazione
         print(f"Valutazione - Total Profit: {total_profit:.2f}")
-        return states_buy, states_sell, total_profit, total_reward
+        return states_buy, states_sell, state_hold, total_profit, total_reward, info
