@@ -177,7 +177,7 @@ class Agent:
         """
         Addestra l'agente interagendo con l'ambiente.
         """
-        roi_history = []
+      
         print(f"Inizio addestramento per {episodes} episodi.")
         for episode in range(1, episodes + 1):
             # Resetta l'ambiente all'inizio di ogni episodio
