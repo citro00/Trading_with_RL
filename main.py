@@ -17,7 +17,7 @@ data = ut.cleaning(data)
 window_size = 30
 end_frame = (len(data)//4)*3
 frame_bound = (window_size, end_frame)
-initial_balance = 10000
+initial_balance = 1000
 
 print("Inizializzazione dell'ambiente...")
 env = CustomStocksEnv(
@@ -40,7 +40,8 @@ agent = Agent(
     state_size=state_size,
     action_size=action_size,
     batch_size=batch_size,
-    device=device
+    device=device,
+    initial_balance=initial_balance
 )
 
 episodes = 50

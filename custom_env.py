@@ -33,7 +33,7 @@ class CustomStocksEnv(TradingEnv):
         self._done_deal = None
         self._last_trade_tick = None
         self._last_buy = None
-        
+        self.sell_rois = [] 
         # Inizializza la posizione come Flat
         self._position = Positions.Flat #AGGIUNTO DA ME CARMINE
 
@@ -214,8 +214,10 @@ class CustomStocksEnv(TradingEnv):
         if self.render_mode == 'human':
             self._render_frame() 
 
-        self.print_env_var(action)
-
+        #self.print_env_var(action)
+        if self._terminate or self._truncated:
+            info['sell_rois'] = self.sell_rois
+            
         return observation, self._step_reward, self._terminate, self._truncated, info
     
     def buy(self):
@@ -240,20 +242,17 @@ class CustomStocksEnv(TradingEnv):
         # Aggiorna last_trade
         self._last_trade_tick = self._current_tick
         self._done_deal = True
-
-    def sell(self):
-        # Aggiornamo il budget attuale aggiungendo il prezzo attuale dell'asset a cui lo stiamo vendendo  
+    
+    def sell(self): 
         self._actual_budget += (self.prices[self._current_tick] * len(self._purchased_assets))
         
-        # Rimuoviamo il primo elmento della lista degli asset acquistati 
-        # (da rivedere, perché dovrebbe vendere l'asset che ha acquistato al prezzo più basso)
-        #self._purchased_assets = sorted(self._purchased_assets)
         self._purchased_assets.clear()
         
         self._position = Positions.Short
         self._done_deal = True
         self._last_trade_tick = self._current_tick
-
+    
+    
     def _get_info(self):
         return dict(
             step_reward  = self._step_reward,
@@ -283,25 +282,25 @@ class CustomStocksEnv(TradingEnv):
         obs, info = super().reset(seed=seed)
         return obs, info
 
-    def print_env_var(self, action):
-        print("##############################################")
-        print(f"Intial Balance: {self.initial_balance}\n"+\
-              #f"Terminate: {self._terminate}\n"+\
-              #f"Truncated: {self._truncated}\n"+\
-              f"Action:{action}\n"+\
-              f"Done deal: {self._done_deal}\n"+\
-              f"Step profit: {self._step_profit}\n"+\
-              f"Total profit: {self._total_profit}\n"+\
-              f"Actual budget: {self._actual_budget}\n"+\
-              f"Actual price: {self.prices[self._current_tick]}\n"+\
-              f"Length of purchased asset: {len(self._purchased_assets)}\n"+\
-              #f"Wallet value: {self._wallet_value}\n"+\
+    #def print_env_var(self, action):
+     #   print("##############################################")
+      #  print(f"Intial Balance: {self.initial_balance}\n"+\
+       #       #f"Terminate: {self._terminate}\n"+\
+        #      #f"Truncated: {self._truncated}\n"+\
+         #     f"Action:{action}\n"+\
+          #    f"Done deal: {self._done_deal}\n"+\
+           #   f"Step profit: {self._step_profit}\n"+\
+            #  f"Total profit: {self._total_profit}\n"+\
+             # f"Actual budget: {self._actual_budget}\n"+\
+       #       f"Actual price: {self.prices[self._current_tick]}\n"+\
+        #      f"Length of purchased asset: {len(self._purchased_assets)}\n"+\
+         #     #f"Wallet value: {self._wallet_value}\n"+\
               #f"Type of wallet_vale var: {type(self._wallet_value)}\n"+\
-              f"Current tick: {self._current_tick}\n"+\
-              f"Last buy tick: {self._last_buy}\n"+\
+        #      f"Current tick: {self._current_tick}\n"+\
+         #     f"Last buy tick: {self._last_buy}\n"+\
               #f"Position: {self._position}\n"+\
-              f"Total reward: {self._total_reward}\n"+\
-              f"Step reward: {self._step_reward}")
+          #    f"Total reward: {self._total_reward}\n"+\
+           #   f"Step reward: {self._step_reward}")
 
     def get_current_tick(self):
         """

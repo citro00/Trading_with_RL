@@ -10,6 +10,7 @@ from gym_anytrading.envs import TradingEnv
 from action import Action
 import matplotlib.pyplot as plt
 import matplotlib.axes
+
 class DQN(nn.Module):
 
     def __init__(self, n_observation, n_actions, hidden_layer_dim=128):
@@ -23,14 +24,14 @@ class DQN(nn.Module):
         x = F.relu(self.layer2(x))
         return self.layer3(x)
 class Agent:
-    def __init__(self, state_size, action_size, batch_size, device):
+    def __init__(self, state_size, action_size, batch_size, device, initial_balance=1000):
         # Inizializza la dimensione dello stato e delle azioni
         self.state_size = state_size
         self.action_size = action_size
         self.batch_size = batch_size
         self.memory = deque(maxlen=10000)  # Memoria per esperienze passate, con capacità massima di 50.000 elementi
         self.device = device
-
+        self.initial_balance = initial_balance  # Bilancio iniziale
         # Parametri di apprendimento per la rete neurale
         self.gamma = 0.95  # Fattore di sconto per il valore delle ricompense future (0 < gamma < 1)
         self.epsilon = 1.0  # Probabilità iniziale di esplorazione (tasso di esplorazione)
@@ -65,6 +66,7 @@ class Agent:
             'step_reward': ax4,
             'loss': ax5
         }
+        
 
         self.plots['total_profit'].set_title("Total Profit")
         self.plots['total_profit'].set_xlabel("Timesteps")
@@ -108,6 +110,7 @@ class Agent:
             nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')  # Inizializza i pesi in base alla strategia di He
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)  # Inizializza i bias a 0
+
     
     def act(self, state):
         """Decide un'azione basata sullo stato attuale con una policy e-greedy"""
@@ -170,10 +173,11 @@ class Agent:
 
         return loss.item()
 
-    def train_agent(self, env:TradingEnv, episodes):
+    def train_agent(self, env:TradingEnv, episodes ):
         """
         Addestra l'agente interagendo con l'ambiente.
         """
+        roi_history = []
         print(f"Inizio addestramento per {episodes} episodi.")
         for episode in range(1, episodes + 1):
             # Resetta l'ambiente all'inizio di ogni episodio
@@ -182,14 +186,14 @@ class Agent:
             state = ut.state_formatter(state)
             done = False
             loss_history = [] #TODO: loss per timestep vs loss per episodio
-            
+         
             # Ciclo fino a che l'episodio non termina
             while not done:
                 action = self.act(state)  # L'agente decide un'azione
                 # Esegui l'azione nell'ambiente
                 next_state, reward, terminated, truncated, info = env.step(action)
-                print(f"Epsilon: {self.epsilon}")
-                print(f"Episodio: {episode}")
+                #print(f"Epsilon: {self.epsilon}")
+                #print(f"Episodio: {episode}")
                 done = terminated or truncated
                 next_state = ut.state_formatter(next_state)
 
@@ -203,7 +207,7 @@ class Agent:
                     # total_loss += loss
                     # loss_count += 1
                     loss_history.append(loss)
-                print(f"Loss: {loss}")
+                #print(f"Loss: {loss}")
                 # env.render()
             # Aggiorna il modello target ogni  5 episodi per stabilizzare l'apprendimento
             if   episode % 5 == 0:
@@ -212,8 +216,13 @@ class Agent:
             # Calcola e stampa la perdita media dell'episodio
             # average_loss = total_loss / loss_count if loss_count > 0 else 0
             average_loss = np.sum(loss_history) / len(loss_history) if len(loss_history) else 0
+            
+            
+            total_profit = info.get('total_profit', 0)
+            average_roi = (total_profit / self.initial_balance) * 100
+            
+            print(f"Episode {episode}/{episodes} #  ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
 
-            print(f"Episode {episode}/{episodes} - Total Profit: {info['total_profit']:.2f} - Average Loss: {average_loss:.4f} - Loss: {loss} - Epsilon: {self.epsilon:.4f}")
             history = env.history
             if episode==episodes:
                 self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history)
@@ -247,7 +256,7 @@ class Agent:
                 states_sell.append(env.get_current_tick())
 
             state = next_state
-            print(f"Step reward: {reward}")
+            #print(f"Step reward: {reward}")
             total_reward += reward
         total_profit = env.get_total_profit()
         print(f"Total profit: {total_profit}\nTotal reward: {total_reward}")
