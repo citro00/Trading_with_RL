@@ -34,12 +34,9 @@ class CustomStocksEnv(TradingEnv):
         self._done_deal = None
         self._last_trade_tick = None
         self._last_buy = None
-<<<<<<< Updated upstream
         self.sell_rois = [] 
-=======
 
         self.df_dict = df        
->>>>>>> Stashed changes
         # Inizializza la posizione come Flat
         self._position = Positions.Flat #AGGIUNTO DA ME CARMINE
 
@@ -241,13 +238,10 @@ class CustomStocksEnv(TradingEnv):
             self._render_frame() 
 
         #self.print_env_var(action)
-<<<<<<< Updated upstream
         if self._terminate or self._truncated:
             info['sell_rois'] = self.sell_rois
             
-=======
 
->>>>>>> Stashed changes
         return observation, self._step_reward, self._terminate, self._truncated, info
     
     def buy(self):
