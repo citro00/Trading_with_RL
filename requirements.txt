@@ -1,0 +1,9 @@
+pandas
+gymnasium
+gym-anytrading
+numpy
+yfinance
+PyQt6
+torch
+torchvision
+torchaudio
