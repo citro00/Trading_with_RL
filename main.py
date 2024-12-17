@@ -12,14 +12,8 @@ data = ut.get_data_dict("2020-01-01", "2024-12-30", symbols)
 keys = list(data.keys())
 
 window_size = 30
-<<<<<<< Updated upstream
-end_frame = (len(data)//4)*3
-frame_bound = (window_size, end_frame)
-initial_balance = 1000
-=======
 frame_bound = (window_size, len(data.get(keys[0])))
 initial_balance = 10000
->>>>>>> Stashed changes
 
 print("Inizializzazione dell'ambiente...")
 env = CustomStocksEnv(
