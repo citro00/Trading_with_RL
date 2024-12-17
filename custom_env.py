@@ -62,7 +62,7 @@ class CustomStocksEnv(TradingEnv):
         :return: Prezzi e feature di segnale normalizzate.
         """
         # Controlla che ci siano le colonne necessarie 
-        required_columns = ['Close']
+        required_columns = ['Close', 'Volume']
         if not all(col in self.df.columns for col in required_columns):
             raise ValueError(f"Le colonne richieste {required_columns} non sono presenti nel DataFrame.")
         # Ottieni il range dei dati da usare basandoti sui limiti specificati
@@ -71,11 +71,18 @@ class CustomStocksEnv(TradingEnv):
         df = self.df.iloc[start:end].reset_index(drop=True)
         # Estrai i prezzi di chiusura
         prices = df['Close'].to_numpy()
+        #estraggo i volumi
+        volumes = df['Volume'].to_numpy()
 
         # Estrai le feature che serviranno come input per l'agente (Close e Volume)
         diff = np.insert(np.diff(df['Close']), 0, 0)
-        signal_features = np.column_stack((prices,diff))
+        
+        #signal_features = np.column_stack((prices,diff))
+        
+        signal_features = np.column_stack((prices, diff, volumes))
+        
         #signal_features = df['Close'].to_numpy()
+        
         # Normalizza le feature per avere valori con media 0 e deviazione standard 1
         scaler = StandardScaler()
         self.scaler = scaler.fit(signal_features)  # Salva lo scaler per un utilizzo futuro
@@ -84,55 +91,6 @@ class CustomStocksEnv(TradingEnv):
         return prices, signal_features
 
     def _calculate_reward(self, action, time_step):
-    
-        '''step_reward = 0
-
-        # Se l'agente vende con un profitto in corso, ottiene una ricompensa positiva.
-        # Se vende in perdita, subisce una penalità.
-        if action == Action.Sell.value:
-            if self._step_profit > 0:
-                step_reward += 0.2   
-            else:
-                step_reward -= 0.3  
-
-        # Se il profitto totale è negativo o nullo, penalità.
-        # Se è positivo, ricompensa.
-        if self._total_profit <= 0:
-            step_reward -= 0.05   #qua prima era 04
-        else:
-            step_reward += 0.2  
-
-        # Se il prezzo attuale è maggiore del prezzo di acquisto, ricompensa fissa.
-        # Altrimenti, penalità fissa.
-        if action == Action.Hold.value and self._position == Positions.Long.value:
-            if self.prices[self._current_tick] > self.prices[self._last_buy]:
-                step_reward += 0.04   #qua prima era 05
-            else:
-                step_reward -= 0.03 
-
-        # Se il prezzo attuale è minore del prezzo di vendita (short), ricompensa.
-        # Altrimenti, penalità.
-        elif action == Action.Hold.value and self._position == Positions.Short.value:
-            if self.prices[self._current_tick] < self.prices[self._last_buy]:
-                step_reward += 0.04  #qua prima era 05
-            else:
-                step_reward -= 0.03  
-
-        # Penalità per l'inattività (tempo trascorso dall'ultima transazione)
-        if self._last_trade_tick is not None:
-            step_reward -= (self._current_tick - self._last_trade_tick) * 0.06 
-
-        # Penalità generica fissa per mantenere un piccolo costo ad ogni step
-        step_reward -= 0.01
-
-        # Ricompensa o penalità a seconda che l'accordo (deal) sia completato o meno
-        # Se non è concluso, penalità; se è concluso, ricompensa.
-        if not self._done_deal:
-            step_reward -= 0.1
-        else:
-            step_reward += 0.2
-
-        return step_reward'''
             
         if action == Action.Sell.value and self._total_profit > 0 and self._done_deal:
             return self.prices[self._current_tick]/self.prices[self._last_buy]
