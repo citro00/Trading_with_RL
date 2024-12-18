@@ -1,4 +1,5 @@
 import random
+from typing import Literal
 import numpy as np
 import torch
 import torch.nn as nn
@@ -7,10 +8,8 @@ import torch.optim as optim
 from collections import deque
 import utils as ut
 from gym_anytrading.envs import TradingEnv
-from action import Action
 import matplotlib.pyplot as plt
 import matplotlib.axes
-
 class DQN(nn.Module):
 
     def __init__(self, n_observation, n_actions, hidden_layer_dim=128):
@@ -24,7 +23,7 @@ class DQN(nn.Module):
         x = F.relu(self.layer2(x))
         return self.layer3(x)
 class Agent:
-    def __init__(self, state_size, action_size, batch_size, device, initial_balance=1000):
+    def __init__(self, state_size, action_size, batch_size, device, initial_balance=1000, render_mode: Literal['step', 'episode', 'off']='off'):
         # Inizializza la dimensione dello stato e delle azioni
         self.state_size = state_size
         self.action_size = action_size
@@ -56,18 +55,32 @@ class Agent:
         # Plots
         self.plots: dict[str, matplotlib.axes.Axes] = None
         self.fig = None
+        self.render_mode = render_mode
+
+    def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
+        self.render_mode = render_mode
 
     def init_plots(self):
-        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3)
+        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, layout="constrained")
         self.plots = {
-            'total_profit': ax1,
-            'step_profit': ax2,
-            'total_reward': ax3,
-            'step_reward': ax4,
-            'loss': ax5
+            'loss': ax1,
+            'total_profit': ax2,
+            'step_profit': ax3,
+            'total_reward': ax4,
+            'step_reward': ax5,
+            'actual_budget': ax6,
         }
-        
 
+        self.fig = fig
+
+    def plot_metrics(self, total_profits, step_profits, total_rewards, step_rewards, losses, budgets):
+        if not self.plots:
+            self.init_plots()
+
+        for v in self.plots.values():
+            v.clear()
+        
+        # plt.ion()
         self.plots['total_profit'].set_title("Total Profit")
         self.plots['total_profit'].set_xlabel("Timesteps")
         self.plots['total_profit'].set_ylabel("Profit")
@@ -88,19 +101,20 @@ class Agent:
         self.plots['loss'].set_xlabel("Timesteps")
         self.plots['loss'].set_ylabel("Loss")
 
-        self.fig = fig
-
-    def plot_metrics(self, total_profits, step_profits, total_rewards, step_rewards, losses):
-        if not self.plots:
-            self.init_plots()
+        self.plots['actual_budget'].set_title("Actual Budget")
+        self.plots['actual_budget'].set_xlabel("Timesteps")
+        self.plots['actual_budget'].set_ylabel("Budget")
 
         self.plots['total_profit'].plot(total_profits)
-        self.plots['step_profit'].plot(step_profits)
+        self.plots['step_profit'].plot(range(0, len(step_profits)), step_profits)
         self.plots['total_reward'].plot(total_rewards)
-        self.plots['step_reward'].plot(step_rewards)
+        self.plots['step_reward'].plot(range(0, len(step_profits)), step_rewards)
+        self.plots['actual_budget'].plot(budgets)
         self.plots['loss'].plot(losses)
 
-        plt.show()
+        # plt.ioff()
+        plt.draw()
+        plt.pause(0.01)
 
     def init_weights(self, m):
         """
@@ -182,7 +196,9 @@ class Agent:
         for episode in range(1, episodes + 1):
             # Resetta l'ambiente all'inizio di ogni episodio
             state, info = env.reset()
-            # env.render()
+            if self.render_mode == 'step':
+                env.render()
+
             state = ut.state_formatter(state)
             done = False
             loss_history = [] #TODO: loss per timestep vs loss per episodio
@@ -207,12 +223,21 @@ class Agent:
                     # total_loss += loss
                     # loss_count += 1
                     loss_history.append(loss)
-                #print(f"Loss: {loss}")
-                # env.render()
+                # print(f"Loss: {loss}")
+
+                # if episode == 1:
+                    # history = env.history
+                    # self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history, history['actual_budget'])
+                if self.render_mode == 'step':
+                    env.render()
+
             # Aggiorna il modello target ogni  5 episodi per stabilizzare l'apprendimento
             if   episode % 5 == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
             
+            if self.render_mode == 'episode':
+                env.render_all(f"Episode {episode}")
+
             # Calcola e stampa la perdita media dell'episodio
             # average_loss = total_loss / loss_count if loss_count > 0 else 0
             average_loss = np.sum(loss_history) / len(loss_history) if len(loss_history) else 0
@@ -223,8 +248,7 @@ class Agent:
         
             print(f"Episode {episode}/{episodes} #  ROI: {average_roi:.2f}% # Total Profit: {info['total_profit']:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
             history = env.history
-            if episode==episodes:
-                self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history)
+            self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history, history['actual_budget'])
 
         print("Addestramento completato.")
 
@@ -236,9 +260,6 @@ class Agent:
         state, info = env.reset()
         state = ut.state_formatter(state)
         done = False
-        states_buy = []
-        states_sell = []
-        state_hold = []
         total_profit = 0
         total_reward = 0
 
@@ -248,21 +269,19 @@ class Agent:
             next_state, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             next_state = ut.state_formatter(next_state)
-
-            # Salva i tick di acquisto o vendita
-            if action == Action.Buy.value and env.get_done_deal():
-                states_buy.append(env.get_current_tick())
-            elif action == Action.Sell.value and env.get_done_deal():
-                states_sell.append(env.get_current_tick())
-            elif action == Action.Hold.value:
-                state_hold.append(env.get_current_tick())
-
             state = next_state
-            #print(f"Step reward: {reward}")
             total_reward += reward
+
+            if self.render_mode == 'step':
+                env.render()
+
         total_profit = env.get_total_profit()
         print(f"Total profit: {total_profit}\nTotal reward: {total_reward}")
 
         # Stampa il profitto totale ottenuto durante la valutazione
         print(f"Valutazione - Total Profit: {total_profit:.2f}")
-        return states_buy, states_sell, state_hold, total_profit, total_reward, info
+
+        if self.render_mode == 'episode':
+            env.render_all()
+        
+        return total_profit, total_reward, info

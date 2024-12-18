@@ -41,6 +41,8 @@ agent = Agent(
 )
 
 episodes = 200
+agent.set_render_mode("episode")
+
 agent.train_agent(env, episodes)
 env.save_reward_history("Reward_History_Training.csv")
 
@@ -59,8 +61,12 @@ env = CustomStocksEnv(
 )
 
 print("Inizio valutazione dell'agente.")
-states_buy, states_sell, state_hold, total_profit, total_reward, info = agent.evaluate_agent(env)
-print(f"Total Profit: {total_profit}")
+agent.set_render_mode("step")
+total_profit, total_reward, info = agent.evaluate_agent(env)
+
+plt.show(block=True)  # Aspetta la chiusura della finestra del grafico
+
+""" print(f"Total Profit: {total_profit}")
 env.save_reward_history("Reward_history_evaluate.csv")
 
 plt.figure(figsize=(15, 5))
@@ -75,4 +81,4 @@ plt.title(f'Total Profit: {total_profit:.2f}; Total Reward: {total_reward}; Asse
 plt.xlabel('Tick')
 plt.ylabel('Price')
 plt.legend()
-plt.show()
+plt.show() """

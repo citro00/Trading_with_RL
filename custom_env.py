@@ -1,3 +1,4 @@
+from time import time
 import numpy as np
 import pandas as pd
 from gym_anytrading.envs import TradingEnv
@@ -7,11 +8,13 @@ from action import Action
 # from position import *
 from position import Positions
 import random
-
+import matplotlib.pyplot as plt
 class CustomStocksEnv(TradingEnv):
     """
     Ambiente di trading personalizzato estendendo TradingEnv da gym_anytrading.
     """
+
+    metadata = {'render_modes': ['human'], 'render_fps': 30, 'figure_num': 999, 'plot_holds': False}
 
     def __init__(self, df:dict, window_size, frame_bound, initial_balance=1000):
         """
@@ -35,6 +38,7 @@ class CustomStocksEnv(TradingEnv):
         self._last_trade_tick = None
         self._last_buy = None
         self.sell_rois = [] 
+        self._last_action: tuple[int, Action] = None
 
         self.df_dict = df        
         # Inizializza la posizione come Flat
@@ -170,14 +174,14 @@ class CustomStocksEnv(TradingEnv):
         if action == Action.Buy.value and self._actual_budget >= self.prices[self._current_tick]:
             # Se l'azione selezionata è buy e il budget disponibile è superiore al prezzo corrente dell'asset: 
             self.buy()
-
         elif action == Action.Sell.value and len(self._purchased_assets)>0:
             # Se l'azione selezionata è sell e la lista degli asset acquistati non è vuota:
             self.sell()
-        elif action == Action.Hold:
+        elif action == Action.Hold.value:
             self._position = Positions.Flat
             self._done_deal = True
-            
+            self._last_action = (self._current_tick, Action.Hold)
+
         # Calcoliamo il profitto data l'azione scelta
         self._update_profit(action)
 
@@ -220,9 +224,11 @@ class CustomStocksEnv(TradingEnv):
         
         # Settiamo la posizione a Long
         self._position = Positions.Long
-        
+
         # Aggiorna last_trade
         self._last_trade_tick = self._current_tick
+        self._last_action = (self._last_trade_tick, Action.Buy)
+
         self._done_deal = True
     
     def sell(self): 
@@ -233,16 +239,19 @@ class CustomStocksEnv(TradingEnv):
         self._position = Positions.Short
         self._done_deal = True
         self._last_trade_tick = self._current_tick
+        self._last_action = (self._last_trade_tick, Action.Sell)
     
     
     def _get_info(self):
         return dict(
-            step_reward  = self._step_reward,
-            total_reward = self._total_reward,
-            step_profit  = self._step_profit,
-            total_profit = self._total_profit,
-            position     = self._position,
-            asset = self._current_asset
+            step_reward   = self._step_reward,
+            total_reward  = self._total_reward,
+            step_profit   = self._step_profit,
+            total_profit  = self._total_profit,
+            action        = self._last_action,
+            position      = self._position,
+            actual_budget = self._actual_budget,
+            asset         = self._current_asset,
         )
 
     def reset(self, seed=None):
@@ -259,6 +268,7 @@ class CustomStocksEnv(TradingEnv):
         self._step_reward = 0.
         self._actual_budget = self.initial_balance
         self._purchased_assets = []
+        self._last_action = None
         self._last_trade_tick = 0
         self._last_buy = 0
         self._reward_history = []  # TODO: rimuovere (Vincenzo)
@@ -306,3 +316,72 @@ class CustomStocksEnv(TradingEnv):
         # reward_history.to_csv(f'./csv/{name}')
         history = pd.DataFrame.from_dict(self.history)
         history.to_csv(f'./csv/{name}')
+
+    def render(self, mode='human'):
+
+        def _plot_action(tick, action):
+            if self._current_tick != tick:
+                return # Plot only last action
+
+            if action == Action.Sell:
+                #plt.scatter(tick, self.prices[tick], s=8**2, c="m", marker="v")
+                plt.plot(tick, self.prices[tick], '^', markersize=8, color='m', label='Buy Signal')
+            elif action == Action.Buy:
+                plt.plot(tick, self.prices[tick], 'v', markersize=8, color='k', label='Sell Signal')
+            elif action == Action.Hold and self.metadata['plot_holds']:
+                plt.plot(tick, self.prices[tick], 'o', markersize=4, color='b', label='Hold Signal')
+
+
+        fig = plt.figure(self.metadata.get('figure_num', 1))
+        if self._first_rendering:
+            self._first_rendering = False
+            fig.clear()
+            plt.plot(self.prices, color='k', lw=1.1, label='Price')
+
+
+        if self._last_action:
+            _plot_action(*self._last_action)
+
+        plt.suptitle(
+            "Total Reward: %.6f" % self._total_reward + ' ~ ' +
+            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
+            "Asset: %s" % self._current_asset
+        )
+
+        pause_time = (1 / self.metadata['render_fps'])
+        assert pause_time > 0., "High FPS! Try to reduce the 'render_fps' value."
+
+        plt.pause(pause_time)
+
+    def render_all(self, title=None):
+        actions_history = [act for act in self.history.get('action', []) if act is not None]
+        fig = plt.figure(self.metadata.get('figure_num', 1))
+        fig.clear()
+
+        sell_signals = [tick for (tick, action) in actions_history if action == Action.Sell]
+        buy_signals = [tick for (tick, action) in actions_history if action == Action.Buy]
+        hold_signals = [tick for (tick, action) in actions_history if action == Action.Hold]
+
+        plt.plot(self.prices)
+        plt.plot(buy_signals, self.prices[buy_signals], '^', markersize=8, color='m', label='Buy Signal')
+        plt.plot(sell_signals, self.prices[sell_signals], 'v', markersize=8, color='k', label='Sell Signal')
+        if self.metadata['plot_holds']:
+            plt.plot(hold_signals, self.prices[hold_signals], 'o', markersize=4, color='b', label='Hold Signal')
+
+        if title:
+            plt.title(title)
+        
+        plt.suptitle(
+            "Total Reward: %.6f" % self._total_reward + ' ~ ' +
+            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
+            "Asset: %s" % self._current_asset
+        )
+
+        plt.xlabel('Tick')
+        plt.ylabel('Price')
+        plt.legend()
+        
+        pause_time = (1 / self.metadata['render_fps'])
+        assert pause_time > 0., "High FPS! Try to reduce the 'render_fps' value."
+
+        plt.pause(pause_time)
