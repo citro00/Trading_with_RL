@@ -262,6 +262,7 @@ class CustomStocksEnv(TradingEnv):
         """
         self._current_asset = random.choice(list(self.df_dict.keys()))
         self.df = self.df_dict[self._current_asset]
+        self.prices, self.signal_features = self._process_data()
         self._total_profit = 0.
         self._step_profit = 0.
         self._total_reward = 0.
