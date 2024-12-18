@@ -362,7 +362,7 @@ class CustomStocksEnv(TradingEnv):
         buy_signals = [tick for (tick, action) in actions_history if action == Action.Buy]
         hold_signals = [tick for (tick, action) in actions_history if action == Action.Hold]
 
-        plt.plot(self.prices)
+        plt.plot(self.prices, color='k', lw=1.1, label='Price')
         plt.plot(buy_signals, self.prices[buy_signals], '^', markersize=8, color='m', label='Buy Signal')
         plt.plot(sell_signals, self.prices[sell_signals], 'v', markersize=8, color='k', label='Sell Signal')
         if self.metadata['plot_holds']:
