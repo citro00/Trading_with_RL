@@ -54,35 +54,15 @@ class Agent:
 
         # Plots
         self.plots: dict[str, matplotlib.axes.Axes] = None
-        self.fig = None
         self.render_mode = render_mode
+        self._is_first_rendering = True
 
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
         self.render_mode = render_mode
 
-    def init_plots(self):
-        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, layout="constrained")
-        self.plots = {
-            'loss': ax1,
-            'total_profit': ax2,
-            'step_profit': ax3,
-            'total_reward': ax4,
-            'step_reward': ax5,
-            'actual_budget': ax6,
-        }
-
-        self.fig = fig
-
-    def plot_metrics(self, total_profits, step_profits, total_rewards, step_rewards, losses, budgets):
-        if not self.plots:
-            self.init_plots()
-
-        for v in self.plots.values():
-            v.clear()
-        
-        # plt.ion()
+    def _set_plot_labels(self):
         self.plots['total_profit'].set_title("Total Profit")
-        self.plots['total_profit'].set_xlabel("Timesteps")
+        self.plots['total_profit'].set_xlabel("Episode")
         self.plots['total_profit'].set_ylabel("Profit")
         
         self.plots['step_profit'].set_title("Step Profit")
@@ -90,7 +70,7 @@ class Agent:
         self.plots['step_profit'].set_ylabel("Profit")
 
         self.plots['total_reward'].set_title("Total Reward")
-        self.plots['total_reward'].set_xlabel("Timesteps")
+        self.plots['total_reward'].set_xlabel("Episode")
         self.plots['total_reward'].set_ylabel("Reward")
 
         self.plots['step_reward'].set_title("Step Reward")
@@ -98,19 +78,37 @@ class Agent:
         self.plots['step_reward'].set_ylabel("Reward")
 
         self.plots['loss'].set_title("Loss")
-        self.plots['loss'].set_xlabel("Timesteps")
+        self.plots['loss'].set_xlabel("Episode")
         self.plots['loss'].set_ylabel("Loss")
 
         self.plots['actual_budget'].set_title("Actual Budget")
         self.plots['actual_budget'].set_xlabel("Timesteps")
         self.plots['actual_budget'].set_ylabel("Budget")
 
-        self.plots['total_profit'].plot(total_profits)
-        self.plots['step_profit'].plot(range(0, len(step_profits)), step_profits)
-        self.plots['total_reward'].plot(total_rewards)
-        self.plots['step_reward'].plot(range(0, len(step_profits)), step_rewards)
-        self.plots['actual_budget'].plot(budgets)
-        self.plots['loss'].plot(losses)
+    def init_plots(self):
+        fig = plt.figure(1000, figsize=(15, 5),  layout="constrained")
+        self.plots = fig.subplot_mosaic(
+            [
+                ["total_profit", "total_reward", "loss"],
+                ["step_profit", "step_reward", "actual_budget"]
+            ]
+        )
+        
+        self._set_plot_labels()
+        plt.ion()
+
+    def plot_metrics(self, **kwargs):
+        if not self.plots:
+            self.init_plots()
+        
+        for metric, value in kwargs.items():
+            self.plots[metric].clear()
+            if metric == 'step_reward':
+                self.plots[metric].scatter(range(len(value)), value, s=2**2)
+            else:
+                self.plots[metric].plot(value)
+
+        self._set_plot_labels()
 
         # plt.ioff()
         plt.draw()
@@ -191,20 +189,35 @@ class Agent:
         """
         Addestra l'agente interagendo con l'ambiente.
         """
-      
+        per_step_metrics = {
+            'step_reward': [],
+            'step_profit': [],
+            'actual_budget': []
+        }
+        
+        per_episode_metrics = {
+            'loss': [],
+            'total_reward': [],
+            'total_profit': [],
+        }
+
         print(f"Inizio addestramento per {episodes} episodi.")
         for episode in range(1, episodes + 1):
             # Resetta l'ambiente all'inizio di ogni episodio
             state, info = env.reset()
+            # Resetta le metriche per timestep
+            for metric in per_step_metrics.keys():
+                per_step_metrics[metric] = []
+
             if self.render_mode == 'step':
                 env.render()
 
             state = ut.state_formatter(state)
             done = False
-            loss_history = [] #TODO: loss per timestep vs loss per episodio
          
             # Ciclo fino a che l'episodio non termina
             while not done:
+                total_loss, loss_count = 0, 0.
                 action = self.act(state)  # L'agente decide un'azione
                 # Esegui l'azione nell'ambiente
                 next_state, reward, terminated, truncated, info = env.step(action)
@@ -220,36 +233,47 @@ class Agent:
                 # Addestra la rete con l'esperienza memorizzata
                 loss = self.replay()
                 if loss is not None:
-                    # total_loss += loss
-                    # loss_count += 1
-                    loss_history.append(loss)
-                # print(f"Loss: {loss}")
+                    total_loss += loss
+                    loss_count += 1
 
-                # if episode == 1:
-                    # history = env.history
-                    # self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history, history['actual_budget'])
+                # FINE DI UN TIMESTEP
                 if self.render_mode == 'step':
                     env.render()
 
+                # Salva le metriche per timestep
+                for metric, arr in per_step_metrics.items():
+                    arr.append(info[metric])
+
+                if self.render_mode == 'step':
+                    self.plot_metrics(**per_step_metrics)
+                
+            
+            # FINE DI UN EPISODIO
             # Aggiorna il modello target ogni  5 episodi per stabilizzare l'apprendimento
-            if   episode % 5 == 0:
+            if episode % 5 == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
             
             if self.render_mode == 'episode':
                 env.render_all(f"Episode {episode}")
 
-            # Calcola e stampa la perdita media dell'episodio
-            # average_loss = total_loss / loss_count if loss_count > 0 else 0
-            average_loss = np.sum(loss_history) / len(loss_history) if len(loss_history) else 0
-            
-            
+            # Salva le metriche per episodio
+            average_loss = total_loss / loss_count if loss_count > 0 else 0
+            per_episode_metrics['loss'].append(average_loss)
+            for metric in ['total_profit', 'total_reward']:
+                per_episode_metrics[metric].append(info[metric])
+            if self.render_mode == 'episode':
+                self.plot_metrics(**per_step_metrics)
+                self.plot_metrics(**per_episode_metrics)
+
             total_profit = info.get('total_profit', 0)
             average_roi = (total_profit / self.initial_balance) * 100
         
             print(f"Episode {episode}/{episodes} #  ROI: {average_roi:.2f}% # Total Profit: {info['total_profit']:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
-            history = env.history
-            self.plot_metrics(history['total_profit'], history['step_profit'], history['total_reward'], history['step_reward'], loss_history, history['actual_budget'])
 
+        if self.render_mode == 'off':
+            self.plot_metrics(**per_step_metrics)
+            self.plot_metrics(**per_episode_metrics)
+            plt.show(block=True)
         print("Addestramento completato.")
 
     def evaluate_agent(self, env:TradingEnv): #todo implemetn
