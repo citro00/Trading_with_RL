@@ -1,12 +1,10 @@
 from time import time
 import numpy as np
 import pandas as pd
-from gym_anytrading.envs import TradingEnv
+from gym_anytrading.envs import TradingEnv, Positions
 from gymnasium import spaces
 from sklearn.preprocessing import StandardScaler
 from action import Action
-# from position import *
-from position import Positions
 import random
 import matplotlib.pyplot as plt
 class CustomStocksEnv(TradingEnv):
@@ -33,16 +31,16 @@ class CustomStocksEnv(TradingEnv):
         self._step_profit = None
         self._step_reward = None
         self._actual_budget = None
-        self._purchased_assets = None
+        # self._purchased_assets = None
+        self._assets_num = None
         self._done_deal = None
         self._last_trade_tick = None
-        self._last_buy = None
         self.sell_rois = [] 
         self._last_action: tuple[int, Action] = None
 
         self.df_dict = df        
         # Inizializza la posizione come Flat
-        self._position = Positions.Flat #AGGIUNTO DA ME CARMINE
+        self._position = Positions.Short #AGGIUNTO DA ME CARMINE
 
         self._current_asset = random.choice(list(self.df_dict.keys()))
 
@@ -97,10 +95,10 @@ class CustomStocksEnv(TradingEnv):
     def _calculate_reward(self, action, time_step):
             
         if action == Action.Sell.value and self._step_profit > 0 and self._done_deal:
-            sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_buy]) + 0.2
+            sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) + 0.2
             return sell_reward
         elif action == Action.Sell.value and self._step_profit <= 0 and self._done_deal:
-            sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_buy]) - 0.5
+            sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) - 0.5
             return sell_reward
 
         if action == Action.Buy.value and self._done_deal and self.prices[self._current_tick] < self.prices[self._last_trade_tick]:
@@ -112,11 +110,11 @@ class CustomStocksEnv(TradingEnv):
         
             return buy_reward
 
-        if action == Action.Hold.value and self.prices[self._current_tick] > self.prices[self._last_buy]:
-            hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_buy])  + 0.2
+        if action == Action.Hold.value and self.prices[self._current_tick] > self.prices[self._last_trade_tick]:
+            hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick])  + 0.2
             return hold_reward
-        elif action == Action.Hold.value and self.prices[self._current_tick] <= self.prices[self._last_buy]:
-            hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_buy])  - 0.5
+        elif action == Action.Hold.value and self.prices[self._current_tick] <= self.prices[self._last_trade_tick]:
+            hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick])  - 0.5
             return hold_reward
 
         if not self._done_deal:
@@ -134,7 +132,7 @@ class CustomStocksEnv(TradingEnv):
         
         self._total_profit = self._actual_budget - self.initial_balance
         if action == Action.Sell.value:
-          self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_buy])
+          self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])
         #self._total_profit = self._actual_budget - self.initial_balance
 
     def _get_observation(self):
@@ -179,11 +177,12 @@ class CustomStocksEnv(TradingEnv):
         if action == Action.Buy.value and self._actual_budget >= self.prices[self._current_tick]:
             # Se l'azione selezionata è buy e il budget disponibile è superiore al prezzo corrente dell'asset: 
             self.buy()
-        elif action == Action.Sell.value and len(self._purchased_assets)>0:
+        # elif action == Action.Sell.value and len(self._purchased_assets)>0:
+        elif action == Action.Sell.value and self._assets_num > 0:
             # Se l'azione selezionata è sell e la lista degli asset acquistati non è vuota:
             self.sell()
         elif action == Action.Hold.value:
-            self._position = Positions.Flat
+            # self._position = Positions.Flat
             self._done_deal = True
             self._last_action = (self._current_tick, Action.Hold)
 
@@ -193,6 +192,9 @@ class CustomStocksEnv(TradingEnv):
         # Calcoliamo la reard
         self._step_reward = self._calculate_reward(action, self._current_tick)
         
+        if (action == Action.Sell.value or action == Action.Buy.value) and self._done_deal:
+            self._last_trade_tick = self._current_tick
+
         # Aggiorniamo la reward totale totale dell'episodio
         self._total_reward += self._step_reward
 
@@ -212,38 +214,41 @@ class CustomStocksEnv(TradingEnv):
         return observation, self._step_reward, self._terminate, self._truncated, info
     
     def buy(self):
-        # Sottraiamo dal budget attuale il prezzo dell'asset (compriamo)
-        num_action = round(self._actual_budget/self.prices[self._current_tick])-1
+        # # Sottraiamo dal budget attuale il prezzo dell'asset (compriamo)
+        # num_action = round(self._actual_budget/self.prices[self._current_tick])-1
 
-        if num_action <= 1:
-            num_action = 1
+        # if num_action <= 1:
+        #     num_action = 1
         
-        self._actual_budget -= (self.prices[self._current_tick]*num_action)
+        # self._actual_budget -= (self.prices[self._current_tick]*num_action)
         
-        # Salviamo il tick corrente come il tick in cui è stato effettuata l'ultima compera
-        self._last_buy = self._current_tick
         
-        # Aggiungiamo il prezzo corrente alla lista delle azioni acquistate
-        for i in range(0, num_action):
-            self._purchased_assets.append(self.prices[self._current_tick])
+        # # Aggiungiamo il prezzo corrente alla lista delle azioni acquistate
+        # for i in range(0, num_action):
+        #     self._purchased_assets.append(self.prices[self._current_tick])
         
+        qty = self._actual_budget // self.prices[self._current_tick]
+        self._actual_budget -= (self.prices[self._current_tick] * qty)
+        self._assets_num += qty
+
         # Settiamo la posizione a Long
         self._position = Positions.Long
 
-        # Aggiorna last_trade
-        self._last_trade_tick = self._current_tick
+        # Salviamo il tick corrente come tick di acquisto e tick dell'ultima transazione
         self._last_action = (self._last_trade_tick, Action.Buy)
 
         self._done_deal = True
     
     def sell(self): 
-        self._actual_budget += (self.prices[self._current_tick] * len(self._purchased_assets))
+        # self._actual_budget += (self.prices[self._current_tick] * len(self._purchased_assets))
         
-        self._purchased_assets.clear()
+        # self._purchased_assets.clear()
         
+        self._actual_budget += self.prices[self._current_tick] * self._assets_num
+        self._assets_num = 0
+
         self._position = Positions.Short
         self._done_deal = True
-        self._last_trade_tick = self._current_tick
         self._last_action = (self._last_trade_tick, Action.Sell)
     
     
@@ -273,10 +278,10 @@ class CustomStocksEnv(TradingEnv):
         self._total_reward = 0.
         self._step_reward = 0.
         self._actual_budget = self.initial_balance
-        self._purchased_assets = []
+        # self._purchased_assets = []
+        self._assets_num = 0
         self._last_action = None
         self._last_trade_tick = 0
-        self._last_buy = 0
         self._reward_history = []  # TODO: rimuovere (Vincenzo)
         self._position = Positions.Short
         self._truncated = False  # Reset del flag truncated
@@ -315,7 +320,7 @@ class CustomStocksEnv(TradingEnv):
         return self._done_deal
     
     def _get_total_profit(self):
-        return self._total_profit + (self.prices[self._current_tick]*len(self._purchased_assets))
+        return self._total_profit + (self.prices[self._current_tick]*self._assets_num)
     
     def save_reward_history(self, name):
         # reward_history = pd.DataFrame(self._reward_history, columns=['Tick', 'Reward', 'Step_profit', 'Total_profit'])
