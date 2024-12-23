@@ -131,7 +131,6 @@ class CustomStocksEnv(TradingEnv):
           self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_buy])
         #self._total_profit = self._actual_budget - self.initial_balance
 
-
     def _get_observation(self):
         """
         Ottiene l'osservazione corrente basata sulla finestra di osservazione.
@@ -247,7 +246,7 @@ class CustomStocksEnv(TradingEnv):
             step_reward   = self._step_reward,
             total_reward  = self._total_reward,
             step_profit   = self._step_profit,
-            total_profit  = self._total_profit,
+            total_profit  = self._get_total_profit(),
             action        = self._last_action,
             position      = self._position,
             actual_budget = self._actual_budget,
@@ -309,7 +308,7 @@ class CustomStocksEnv(TradingEnv):
     def get_done_deal(self):
         return self._done_deal
     
-    def get_total_profit(self):
+    def _get_total_profit(self):
         return self._total_profit + (self.prices[self._current_tick]*len(self._purchased_assets))
     
     def save_reward_history(self, name):
@@ -326,9 +325,9 @@ class CustomStocksEnv(TradingEnv):
 
             if action == Action.Sell:
                 #plt.scatter(tick, self.prices[tick], s=8**2, c="m", marker="v")
-                plt.plot(tick, self.prices[tick], '^', markersize=8, color='m', label='Buy Signal')
+                plt.plot(tick, self.prices[tick], 'v', markersize=8, color='k', label='Buy Signal')
             elif action == Action.Buy:
-                plt.plot(tick, self.prices[tick], 'v', markersize=8, color='k', label='Sell Signal')
+                plt.plot(tick, self.prices[tick], '^', markersize=8, color='m', label='Sell Signal')
             elif action == Action.Hold and self.metadata['plot_holds']:
                 plt.plot(tick, self.prices[tick], 'o', markersize=4, color='b', label='Hold Signal')
 

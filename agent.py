@@ -265,7 +265,8 @@ class Agent:
                 self.plot_metrics(**per_step_metrics)
                 self.plot_metrics(**per_episode_metrics)
 
-            total_profit = info.get('total_profit', 0)
+            #total_profit = info.get('total_profit', 0)
+            total_profit = info['total_profit']
             average_roi = (total_profit / self.initial_balance) * 100
         
             print(f"Episode {episode}/{episodes} #  ROI: {average_roi:.2f}% # Total Profit: {info['total_profit']:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
@@ -299,13 +300,12 @@ class Agent:
             if self.render_mode == 'step':
                 env.render()
 
-        total_profit = env.get_total_profit()
-        print(f"Total profit: {total_profit}\nTotal reward: {total_reward}")
+        print(f"Total profit: {info['total_profit']}\nTotal reward: {total_reward}")
 
         # Stampa il profitto totale ottenuto durante la valutazione
-        print(f"Valutazione - Total Profit: {total_profit:.2f}")
+        print(f"Valutazione - Total Profit: {info['total_profit']:.2f}")
 
         if self.render_mode == 'episode':
             env.render_all()
         
-        return total_profit, total_reward, info
+        return info['total_profit'], total_reward, info

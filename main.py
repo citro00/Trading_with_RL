@@ -40,7 +40,7 @@ agent = Agent(
     initial_balance=initial_balance
 )
 
-episodes = 200
+episodes = 100
 agent.set_render_mode("episode")
 
 agent.train_agent(env, episodes)
