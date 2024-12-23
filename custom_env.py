@@ -96,26 +96,32 @@ class CustomStocksEnv(TradingEnv):
 
     def _calculate_reward(self, action, time_step):
             
-        if action == Action.Sell.value and self._total_profit > 0 and self._done_deal:
-            return self.prices[self._current_tick]/self.prices[self._last_buy]
-        elif action == Action.Sell.value and self._total_profit <= 0 and self._done_deal:
-            return np.log(self.prices[self._current_tick]/self.prices[self._last_buy])+1
+        if action == Action.Sell.value and self._step_profit > 0 and self._done_deal:
+            sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_buy]) + 0.2
+            return sell_reward
+        elif action == Action.Sell.value and self._step_profit <= 0 and self._done_deal:
+            sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_buy]) - 0.5
+            return sell_reward
+
+        if action == Action.Buy.value and self._done_deal and self.prices[self._current_tick] < self.prices[self._last_trade_tick]:
+            buy_reward = np.log(self.prices[self._last_trade_tick] / self.prices[self._current_tick]) + 0.2
+   
+            return buy_reward
+        elif action == Action.Buy.value and self._done_deal and self.prices[self._current_tick] >= self.prices[self._last_trade_tick]:
+            buy_reward = np.log(self.prices[self._last_trade_tick] / self.prices[self._current_tick]) - 0.5
+        
+            return buy_reward
 
         if action == Action.Hold.value and self.prices[self._current_tick] > self.prices[self._last_buy]:
-            return 2
+            hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_buy])  + 0.2
+            return hold_reward
         elif action == Action.Hold.value and self.prices[self._current_tick] <= self.prices[self._last_buy]:
-            return -4
-        elif action == Action.Hold.value and self.prices[self._current_tick] < self.prices[self._last_trade_tick]:
-            return 1
-        elif action == Action.Hold.value and self.prices[self._current_tick] >= self.prices[self._last_trade_tick]:
-            return -2
-        
-        if action == Action.Buy.value and self._done_deal:
-            return np.log(self.prices[self._current_tick]/self.prices[self._last_trade_tick])
-        
+            hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_buy])  - 0.5
+            return hold_reward
+
         if not self._done_deal:
-            return -3
-        
+            return -0.5
+
         return 0
             
     def _update_profit(self, action) :
@@ -373,7 +379,7 @@ class CustomStocksEnv(TradingEnv):
         
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
-            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
+            "Total Profit: %.6f" % self._get_total_profit() + ' ~ ' +
             "Asset: %s" % self._current_asset
         )
 
