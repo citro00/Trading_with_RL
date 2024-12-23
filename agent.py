@@ -81,16 +81,16 @@ class Agent:
         self.plots['loss'].set_xlabel("Episode")
         self.plots['loss'].set_ylabel("Loss")
 
-        self.plots['actual_budget'].set_title("Actual Budget")
-        self.plots['actual_budget'].set_xlabel("Timesteps")
-        self.plots['actual_budget'].set_ylabel("Budget")
+        self.plots['wallet_value'].set_title("Wallet Value")
+        self.plots['wallet_value'].set_xlabel("Episode")
+        self.plots['wallet_value'].set_ylabel("Value")
 
     def init_plots(self):
         fig = plt.figure(1000, figsize=(15, 5),  layout="constrained")
         self.plots = fig.subplot_mosaic(
             [
                 ["total_profit", "total_reward", "loss"],
-                ["step_profit", "step_reward", "actual_budget"]
+                ["step_profit", "step_reward", "wallet_value"]
             ]
         )
         
@@ -122,8 +122,7 @@ class Agent:
             nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')  # Inizializza i pesi in base alla strategia di He
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)  # Inizializza i bias a 0
-
-    
+  
     def act(self, state):
         """Decide un'azione basata sullo stato attuale con una policy e-greedy"""
         if random.random() <= self.epsilon:
@@ -192,13 +191,14 @@ class Agent:
         per_step_metrics = {
             'step_reward': [],
             'step_profit': [],
-            'actual_budget': []
+            #'actual_budget': []
         }
         
         per_episode_metrics = {
             'loss': [],
             'total_reward': [],
             'total_profit': [],
+            'wallet_value': []
         }
 
         print(f"Inizio addestramento per {episodes} episodi.")
@@ -267,9 +267,10 @@ class Agent:
 
             #total_profit = info.get('total_profit', 0)
             total_profit = info['total_profit']
+            wallet_value = info['wallet_value']
             average_roi = (total_profit / self.initial_balance) * 100
         
-            print(f"Episode {episode}/{episodes} #  ROI: {average_roi:.2f}% # Total Profit: {info['total_profit']:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
+            print(f"Episode {episode}/{episodes} #  ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
             self.plot_metrics(**per_step_metrics)

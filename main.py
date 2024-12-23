@@ -13,7 +13,7 @@ keys = list(data.keys())
 
 window_size = 30
 frame_bound = (window_size, len(data.get(keys[0])))
-initial_balance = 10000
+initial_balance = 5000
 
 print("Inizializzazione dell'ambiente...")
 env = CustomStocksEnv(
@@ -41,14 +41,9 @@ agent = Agent(
 )
 
 episodes = 100
-agent.set_render_mode("episode")
+agent.set_render_mode("step")
 
 agent.train_agent(env, episodes)
-env.save_reward_history("Reward_History_Training.csv")
-
-#model_path = "agent_model.pth"
-#torch.save(agent.model.state_dict(), model_path)
-#print(f"Modello salvato in {model_path}")
 
 symbols = ["MRVL"]
 data = ut.get_data_dict("2020-01-01", "2024-12-30", symbols)
@@ -65,20 +60,3 @@ agent.set_render_mode("step")
 total_profit, total_reward, info = agent.evaluate_agent(env)
 
 plt.show(block=True)  # Aspetta la chiusura della finestra del grafico
-
-""" print(f"Total Profit: {total_profit}")
-env.save_reward_history("Reward_history_evaluate.csv")
-
-plt.figure(figsize=(15, 5))
-plt.plot(env.prices, color='r', lw=2., label='Price')
-
-if states_buy:
-    plt.plot(states_buy, env.prices[states_buy], '^', markersize=8, color='m', label='Buy Signal')
-if states_sell:
-    plt.plot(states_sell, env.prices[states_sell], 'v', markersize=8, color='k', label='Sell Signal')
-
-plt.title(f'Total Profit: {total_profit:.2f}; Total Reward: {total_reward}; Asset: {info["asset"]}')
-plt.xlabel('Tick')
-plt.ylabel('Price')
-plt.legend()
-plt.show() """

@@ -12,7 +12,7 @@ class CustomStocksEnv(TradingEnv):
     Ambiente di trading personalizzato estendendo TradingEnv da gym_anytrading.
     """
 
-    metadata = {'render_modes': ['human'], 'render_fps': 30, 'figure_num': 999, 'plot_holds': False}
+    metadata = {'render_modes': ['human'], 'render_fps': 1, 'figure_num': 999, 'plot_holds': False}
 
     def __init__(self, df:dict, window_size, frame_bound, initial_balance=1000):
         """
@@ -39,8 +39,6 @@ class CustomStocksEnv(TradingEnv):
         self._last_action: tuple[int, Action] = None
 
         self.df_dict = df        
-        # Inizializza la posizione come Flat
-        self._position = Positions.Short #AGGIUNTO DA ME CARMINE
 
         self._current_asset = random.choice(list(self.df_dict.keys()))
 
@@ -56,6 +54,7 @@ class CustomStocksEnv(TradingEnv):
             shape=(self.window_size, self.signal_features.shape[1]),
             dtype=np.float32
         )
+
 
     def _process_data(self):
         """
@@ -92,7 +91,7 @@ class CustomStocksEnv(TradingEnv):
 
         return prices, signal_features
 
-    def _calculate_reward(self, action, time_step):
+    def _calculate_reward(self, action):
             
         if action == Action.Sell.value and self._step_profit > 0 and self._done_deal:
             sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) + 0.2
@@ -130,33 +129,9 @@ class CustomStocksEnv(TradingEnv):
         :return: Reward ottenuto dall'azione.
         """
         
-        self._total_profit = self._actual_budget - self.initial_balance
+        #self._total_profit = self._get_wallet_value() - self.initial_balance
         if action == Action.Sell.value:
           self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])
-        #self._total_profit = self._actual_budget - self.initial_balance
-
-    def _get_observation(self):
-        """
-        Ottiene l'osservazione corrente basata sulla finestra di osservazione.
-
-        :return: Array numpy che rappresenta l'osservazione corrente.
-        """
-        start = self._current_tick - self.window_size
-        end = self._current_tick
-
-        if start < 0:
-            start = 0
-
-        if end > len(self.signal_features):
-            end = len(self.signal_features)
-
-        obs = self.signal_features[start:end]
-        # Aggiungi padding se l'osservazione è inferiore alla dimensione della finestra
-        if len(obs) < self.window_size:
-            padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
-            obs = np.vstack((padding, obs))
-
-        return obs
 
     def step(self, action):
         # Reset parametri iniziali
@@ -168,37 +143,36 @@ class CustomStocksEnv(TradingEnv):
 
         # Controllimao che l'episodio non sia terminato
         if self._current_tick == self._end_tick:
+            self._total_profit = self._get_wallet_value() - self.initial_balance
             self._terminate = True
         
         # Controllimao che il budget disponibile non sia a 0 (altrimenti tronchiamo l'esecuzione)
         if self._actual_budget <= 0:
             self._truncated = True
 
+        self._last_action = None
         if action == Action.Buy.value and self._actual_budget >= self.prices[self._current_tick]:
             # Se l'azione selezionata è buy e il budget disponibile è superiore al prezzo corrente dell'asset: 
             self.buy()
-        # elif action == Action.Sell.value and len(self._purchased_assets)>0:
         elif action == Action.Sell.value and self._assets_num > 0:
             # Se l'azione selezionata è sell e la lista degli asset acquistati non è vuota:
             self.sell()
         elif action == Action.Hold.value:
-            # self._position = Positions.Flat
             self._done_deal = True
             self._last_action = (self._current_tick, Action.Hold)
 
         # Calcoliamo il profitto data l'azione scelta
         self._update_profit(action)
 
-        # Calcoliamo la reard
-        self._step_reward = self._calculate_reward(action, self._current_tick)
+        # Calcoliamo la reward
+        self._step_reward = self._calculate_reward(action)
         
         if (action == Action.Sell.value or action == Action.Buy.value) and self._done_deal:
             self._last_trade_tick = self._current_tick
 
         # Aggiorniamo la reward totale totale dell'episodio
-        self._total_reward += self._step_reward
+        self._total_reward = self._set_total_reward(self._step_reward)
 
-        self._position_history.append(self._position)
         observation = self._get_observation()
         info = self._get_info()
         self._update_history(info)
@@ -206,7 +180,6 @@ class CustomStocksEnv(TradingEnv):
         if self.render_mode == 'human':
             self._render_frame() 
 
-        #self.print_env_var(action)
         if self._terminate or self._truncated:
             info['sell_rois'] = self.sell_rois
             
@@ -214,55 +187,21 @@ class CustomStocksEnv(TradingEnv):
         return observation, self._step_reward, self._terminate, self._truncated, info
     
     def buy(self):
-        # # Sottraiamo dal budget attuale il prezzo dell'asset (compriamo)
-        # num_action = round(self._actual_budget/self.prices[self._current_tick])-1
-
-        # if num_action <= 1:
-        #     num_action = 1
-        
-        # self._actual_budget -= (self.prices[self._current_tick]*num_action)
-        
-        
-        # # Aggiungiamo il prezzo corrente alla lista delle azioni acquistate
-        # for i in range(0, num_action):
-        #     self._purchased_assets.append(self.prices[self._current_tick])
-        
         qty = self._actual_budget // self.prices[self._current_tick]
         self._actual_budget -= (self.prices[self._current_tick] * qty)
         self._assets_num += qty
 
-        # Settiamo la posizione a Long
-        self._position = Positions.Long
-
         # Salviamo il tick corrente come tick di acquisto e tick dell'ultima transazione
-        self._last_action = (self._last_trade_tick, Action.Buy)
+        self._last_action = (self._current_tick, Action.Buy)
 
         self._done_deal = True
     
     def sell(self): 
-        # self._actual_budget += (self.prices[self._current_tick] * len(self._purchased_assets))
-        
-        # self._purchased_assets.clear()
-        
         self._actual_budget += self.prices[self._current_tick] * self._assets_num
         self._assets_num = 0
 
-        self._position = Positions.Short
         self._done_deal = True
-        self._last_action = (self._last_trade_tick, Action.Sell)
-    
-    
-    def _get_info(self):
-        return dict(
-            step_reward   = self._step_reward,
-            total_reward  = self._total_reward,
-            step_profit   = self._step_profit,
-            total_profit  = self._get_total_profit(),
-            action        = self._last_action,
-            position      = self._position,
-            actual_budget = self._actual_budget,
-            asset         = self._current_asset,
-        )
+        self._last_action = (self._current_tick, Action.Sell)
 
     def reset(self, seed=None):
         """
@@ -273,72 +212,29 @@ class CustomStocksEnv(TradingEnv):
         self._current_asset = random.choice(list(self.df_dict.keys()))
         self.df = self.df_dict[self._current_asset]
         self.prices, self.signal_features = self._process_data()
-        self._total_profit = 0.
         self._step_profit = 0.
         self._total_reward = 0.
         self._step_reward = 0.
         self._actual_budget = self.initial_balance
-        # self._purchased_assets = []
         self._assets_num = 0
         self._last_action = None
         self._last_trade_tick = 0
-        self._reward_history = []  # TODO: rimuovere (Vincenzo)
-        self._position = Positions.Short
         self._truncated = False  # Reset del flag truncated
         obs, info = super().reset(seed=seed)
+        self._total_profit = 0.
         return obs, info
-
-    #def print_env_var(self, action):
-     #   print("##############################################")
-      #  print(f"Intial Balance: {self.initial_balance}\n"+\
-       #       #f"Terminate: {self._terminate}\n"+\
-        #      #f"Truncated: {self._truncated}\n"+\
-         #     f"Action:{action}\n"+\
-          #    f"Done deal: {self._done_deal}\n"+\
-           #   f"Step profit: {self._step_profit}\n"+\
-            #  f"Total profit: {self._total_profit}\n"+\
-             # f"Actual budget: {self._actual_budget}\n"+\
-       #       f"Actual price: {self.prices[self._current_tick]}\n"+\
-        #      f"Length of purchased asset: {len(self._purchased_assets)}\n"+\
-         #     #f"Wallet value: {self._wallet_value}\n"+\
-              #f"Type of wallet_vale var: {type(self._wallet_value)}\n"+\
-        #      f"Current tick: {self._current_tick}\n"+\
-         #     f"Last buy tick: {self._last_buy}\n"+\
-              #f"Position: {self._position}\n"+\
-          #    f"Total reward: {self._total_reward}\n"+\
-           #   f"Step reward: {self._step_reward}")
-
-    def get_current_tick(self):
-        """
-        Ottiene l'indice corrente (il tick) del trading.
-
-        :return: L'indice attuale.
-        """
-        return self._current_tick
-    
-    def get_done_deal(self):
-        return self._done_deal
-    
-    def _get_total_profit(self):
-        return self._total_profit + (self.prices[self._current_tick]*self._assets_num)
-    
-    def save_reward_history(self, name):
-        # reward_history = pd.DataFrame(self._reward_history, columns=['Tick', 'Reward', 'Step_profit', 'Total_profit'])
-        # reward_history.to_csv(f'./csv/{name}')
-        history = pd.DataFrame.from_dict(self.history)
-        history.to_csv(f'./csv/{name}')
 
     def render(self, mode='human'):
 
         def _plot_action(tick, action):
-            if self._current_tick != tick:
-                return # Plot only last action
+            '''if self._current_tick != tick:
+                return # Plot only last action'''
 
             if action == Action.Sell:
                 #plt.scatter(tick, self.prices[tick], s=8**2, c="m", marker="v")
-                plt.plot(tick, self.prices[tick], 'v', markersize=8, color='k', label='Buy Signal')
+                plt.plot(tick, self.prices[tick], 'v', markersize=8, color='k', label='Sell Signal')
             elif action == Action.Buy:
-                plt.plot(tick, self.prices[tick], '^', markersize=8, color='m', label='Sell Signal')
+                plt.plot(tick, self.prices[tick], '^', markersize=8, color='m', label='Buy Signal')
             elif action == Action.Hold and self.metadata['plot_holds']:
                 plt.plot(tick, self.prices[tick], 'o', markersize=4, color='b', label='Hold Signal')
 
@@ -350,12 +246,16 @@ class CustomStocksEnv(TradingEnv):
             plt.plot(self.prices, color='k', lw=1.1, label='Price')
 
 
+        print(f"Last action: {self._last_action}")
         if self._last_action:
             _plot_action(*self._last_action)
 
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
-            "Total Profit: %.6f" % self._get_total_profit() + ' ~ ' +
+            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
+            "wallet value: %.6f" % self._get_wallet_value() + ' ~ ' +
+            "Asset number :%.6f" % self._assets_num + '~' +
+            "Actual budget: %.6f" % self._actual_budget + '~' +
             "Asset: %s" % self._current_asset
         )
 
@@ -384,7 +284,10 @@ class CustomStocksEnv(TradingEnv):
         
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
-            "Total Profit: %.6f" % self._get_total_profit() + ' ~ ' +
+            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
+            "wallet value: %.6f" % self._get_wallet_value() + ' ~ ' +
+            "Asset number :%.6f" % self._assets_num + '~' +
+            "Actual budget: %.6f" % self._actual_budget + '~' +
             "Asset: %s" % self._current_asset
         )
 
@@ -396,3 +299,48 @@ class CustomStocksEnv(TradingEnv):
         assert pause_time > 0., "High FPS! Try to reduce the 'render_fps' value."
 
         plt.pause(pause_time)
+
+    def _get_observation(self):
+        """
+        Ottiene l'osservazione corrente basata sulla finestra di osservazione.
+
+        :return: Array numpy che rappresenta l'osservazione corrente.
+        """
+        start = self._current_tick - self.window_size
+        end = self._current_tick
+
+        if start < 0:
+            start = 0
+
+        if end > len(self.signal_features):
+            end = len(self.signal_features)
+
+        obs = self.signal_features[start:end]
+        # Aggiungi padding se l'osservazione è inferiore alla dimensione della finestra
+        if len(obs) < self.window_size:
+            padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
+            obs = np.vstack((padding, obs))
+
+        return obs
+    
+    def _get_info(self):
+        return dict(
+            step_reward   = self._step_reward,
+            total_reward  = self._get_total_reward(),
+            step_profit   = self._step_profit,
+            total_profit  = self._total_profit,
+            wallet_value = self._get_wallet_value(),
+            action        = self._last_action,
+            actual_budget = self._actual_budget,
+            asset         = self._current_asset,
+        )
+    
+    def _get_wallet_value(self):
+        return self._actual_budget + (self.prices[self._current_tick]*self._assets_num)
+        #return self._total_profit + (self.prices[self._current_tick]*self._assets_num)
+    
+    def _get_total_reward(self):
+        return self._total_reward
+    
+    def _set_total_reward(self, step_reward):
+        return self._total_reward + step_reward
