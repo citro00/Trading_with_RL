@@ -344,7 +344,7 @@ class CustomStocksEnv(TradingEnv):
 
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
-            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
+            "Total Profit: %.6f" % self._get_total_profit() + ' ~ ' +
             "Asset: %s" % self._current_asset
         )
 
