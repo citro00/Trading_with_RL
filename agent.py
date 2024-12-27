@@ -270,7 +270,7 @@ class Agent:
             wallet_value = info['wallet_value']
             average_roi = (total_profit / self.initial_balance) * 100
         
-            print(f"Episode {episode}/{episodes} #  ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
+            print(f"Episode {episode}/{episodes} # Dataset: {env._current_asset} # ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
             self.plot_metrics(**per_step_metrics)

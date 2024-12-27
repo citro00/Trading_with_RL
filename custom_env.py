@@ -12,7 +12,7 @@ class CustomStocksEnv(TradingEnv):
     Ambiente di trading personalizzato estendendo TradingEnv da gym_anytrading.
     """
 
-    metadata = {'render_modes': ['human'], 'render_fps': 1, 'figure_num': 999, 'plot_holds': False}
+    metadata = {'render_modes': ['human'], 'render_fps': 30, 'figure_num': 999, 'plot_holds': False}
 
     def __init__(self, df:dict, window_size, frame_bound, initial_balance=1000):
         """

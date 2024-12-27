@@ -6,14 +6,14 @@ import torch
 import matplotlib.pyplot as plt
 
 # Parametri per il download dei dati
-symbols = ["AAPL", "NVDA", "TSLA", "RIOT", "UBER", "AMZN", "UAA"]
+symbols = ["AAPL", "NVDA", "TSLA", "RIOT", "UBER", "AMZN", "UAA", "INTC", "F", "GME", "QUBT"]
 
 data = ut.get_data_dict("2020-01-01", "2024-12-30", symbols)
 keys = list(data.keys())
 
 window_size = 30
 frame_bound = (window_size, len(data.get(keys[0])))
-initial_balance = 5000
+initial_balance = 2000
 
 print("Inizializzazione dell'ambiente...")
 env = CustomStocksEnv(
@@ -40,8 +40,8 @@ agent = Agent(
     initial_balance=initial_balance
 )
 
-episodes = 100
-agent.set_render_mode("step")
+episodes = 200
+agent.set_render_mode("episode")
 
 agent.train_agent(env, episodes)
 
