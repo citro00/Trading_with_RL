@@ -1,6 +1,6 @@
 import pandas as pd
 from custom_env import CustomStocksEnv
-from agent import Agent
+from dqn_agent import DQNAgent
 import utils as ut
 import torch
 import matplotlib.pyplot as plt
@@ -32,7 +32,7 @@ batch_size = 64
 print(f"State size: {state_size}, Action size: {action_size}, Batch size: {batch_size}, Device: {device}")
 
 print("Inizializzazione dell'agente...")
-agent = Agent(
+dqn_agent = DQNAgent(
     state_size=state_size,
     action_size=action_size,
     batch_size=batch_size,
@@ -41,9 +41,9 @@ agent = Agent(
 )
 
 episodes = 200
-agent.set_render_mode("episode")
+dqn_agent.set_render_mode("episode")
 
-agent.train_agent(env, episodes)
+dqn_agent.train_agent(env, episodes)
 
 symbols = ["MRVL"]
 data = ut.get_data_dict("2020-01-01", "2024-12-30", symbols)
@@ -56,7 +56,7 @@ env = CustomStocksEnv(
 )
 
 print("Inizio valutazione dell'agente.")
-agent.set_render_mode("step")
-total_profit, total_reward, info = agent.evaluate_agent(env)
+dqn_agent.set_render_mode("step")
+total_profit, total_reward, info = dqn_agent.evaluate_agent(env)
 
 plt.show(block=True)  # Aspetta la chiusura della finestra del grafico

@@ -22,7 +22,7 @@ class DQN(nn.Module):
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
         return self.layer3(x)
-class Agent:
+class DQNAgent:
     def __init__(self, state_size, action_size, batch_size, device, initial_balance=1000, render_mode: Literal['step', 'episode', 'off']='off'):
         # Inizializza la dimensione dello stato e delle azioni
         self.state_size = state_size
@@ -205,6 +205,9 @@ class Agent:
         for episode in range(1, episodes + 1):
             # Resetta l'ambiente all'inizio di ogni episodio
             state, info = env.reset()
+            print(f"Stato: {state}")
+            print(f"Stato shape: {state.shape}")
+            print(f"Stato type: {type(state)}")
             # Resetta le metriche per timestep
             for metric in per_step_metrics.keys():
                 per_step_metrics[metric] = []

@@ -14,7 +14,7 @@ class CustomStocksEnv(TradingEnv):
 
     metadata = {'render_modes': ['human'], 'render_fps': 30, 'figure_num': 999, 'plot_holds': False}
 
-    def __init__(self, df:dict, window_size, frame_bound, initial_balance=1000):
+    def __init__(self, df:dict, window_size, frame_bound, model, initial_balance=1000):
         """
         Inizializza l'ambiente personalizzato.
         
@@ -31,6 +31,7 @@ class CustomStocksEnv(TradingEnv):
         self._step_profit = None
         self._step_reward = None
         self._actual_budget = None
+        self._model = model
         # self._purchased_assets = None
         self._assets_num = None
         self._done_deal = None
@@ -55,13 +56,13 @@ class CustomStocksEnv(TradingEnv):
             dtype=np.float32
         )
 
-
     def _process_data(self):
         """
         Prepara i dati per l'utilizzo nell'ambiente.
 
         :return: Prezzi e feature di segnale normalizzate.
         """
+
         # Controlla che ci siano le colonne necessarie 
         required_columns = ['Close', 'Volume']
         if not all(col in self.df.columns for col in required_columns):
@@ -80,14 +81,34 @@ class CustomStocksEnv(TradingEnv):
         
         #signal_features = np.column_stack((prices,diff))
         
-        signal_features = np.column_stack((prices, diff, volumes))
+        if self._model == 'DQN':
+            signal_features = np.column_stack((prices, diff, volumes))
         
-        #signal_features = df['Close'].to_numpy()
+            #signal_features = df['Close'].to_numpy()
         
-        # Normalizza le feature per avere valori con media 0 e deviazione standard 1
-        scaler = StandardScaler()
-        self.scaler = scaler.fit(signal_features)  # Salva lo scaler per un utilizzo futuro
-        signal_features = self.scaler.transform(signal_features)
+            # Normalizza le feature per avere valori con media 0 e deviazione standard 1
+            scaler = StandardScaler()
+            self.scaler = scaler.fit(signal_features)  # Salva lo scaler per un utilizzo futuro
+            signal_features = self.scaler.transform(signal_features)
+
+        elif self._model == 'QL':
+            signal_features = np.column_stack((prices))
+        
+        return prices, signal_features
+
+    def _process_dicrete_data(self):
+                # Controlla che ci siano le colonne necessarie 
+        required_columns = ['Close']
+        if not all(col in self.df.columns for col in required_columns):
+            raise ValueError(f"Le colonne richieste {required_columns} non sono presenti nel DataFrame.")
+        # Ottieni il range dei dati da usare basandoti sui limiti specificati
+        start = self.frame_bound[0]
+        end = self.frame_bound[1]
+        df = self.df.iloc[start:end].reset_index(drop=True)
+        # Estrai i prezzi di chiusura
+        prices = df['Close'].to_numpy()
+        
+        signal_features = np.column_stack((prices))
 
         return prices, signal_features
 

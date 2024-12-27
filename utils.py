@@ -71,3 +71,6 @@ def get_data_dict(start_date, end_date, ticks:list):
         data_temp = cleaning(data_temp)
         data_dict[tick] = data_temp
     return data_dict
+
+def get_discrete_data(data):
+    pass
