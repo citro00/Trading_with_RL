@@ -21,7 +21,7 @@ class QLAgent:
         self.q_values = defaultdict(lambda: np.zeros(self.action_size))
         self.training_error = []
 
-    def act(self, env, obs):
+    def act(self, obs):
         """
         Returns the best action with probability (1 - epsilon)
         otherwise a random action with probability epsilon to ensure exploration.
@@ -64,8 +64,9 @@ class QLAgent:
         print(f"Inizio addestramento per {episodes} episodi.")
         for episode in range(1, episodes + 1):
             state, info = env.reset()
+            state = state[:,0]
             state = ut.state_formatter(state)
-            state = self._discretize(state)
+            state = self._discretize(state, info["max_price"], info["min_price"])
 
             for metric in per_step_metrics.keys():
                 per_step_metrics[metric] = []
@@ -77,10 +78,10 @@ class QLAgent:
 
             while not done:
                 action = self.act(state)
-                next_state, reward, terminated, truncated, done, info = env.step(action)
-                
+                next_state, reward, terminated, truncated, info = env.step(action)
+                next_state = next_state[:,0]
                 next_state = ut.state_formatter(next_state)
-                next_state = self._discretize(next_state)
+                next_state = self._discretize(next_state, info["max_price"], info["min_price"])
                 self.update(state, action, reward, terminated, next_state)
                 done = terminated or truncated
                 state = next_state
@@ -108,9 +109,9 @@ class QLAgent:
             #total_profit = info.get('total_profit', 0)
             total_profit = info['total_profit']
             wallet_value = info['wallet_value']
-            average_roi = (total_profit / self.initial_balance) * 100
+            average_roi = (total_profit / self._initial_balance) * 100
 
-            print(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
+            print(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
             #self.plot_metrics(**per_step_metrics)
@@ -123,10 +124,10 @@ class QLAgent:
     def evaluate_agent(self, env: TradingEnv):
         self.epsilon = 0
         state, info = env.reset()
-        state = self._discretize(state)
+        state = state[:,0]
 
         state = ut.state_formatter(state)
-        state = self._discretize(state)
+        state = self._discretize(state, info["max_price"], info["min_price"])
         done = False
         total_profit = 0
         total_reward = 0
@@ -134,8 +135,9 @@ class QLAgent:
         while not done:
             action = self.act(state)
             next_state, reward, terminated, truncated, info = env.step(action)
+            next_state = next_state[:,0]
             next_state = ut.state_formatter(next_state)
-            next_state = self._discretize(next_state)
+            next_state = self._discretize(next_state, info["max_price"], info["min_price"])
 
             done = terminated or truncated
             state = next_state
@@ -153,9 +155,68 @@ class QLAgent:
 
         return info['total_profit'], total_reward, info
 
-    def _discretize(self, state):
-        k = 30
-        bins = np.linspace(0, 1, k + 1)  # 31 punti
+    def _discretize(self, state, max_price, min_price):
+        k = 25
+        bins = np.linspace(min_price, max_price, k + 1)
+        print(f"Bins: {bins}")
+        print(f"State: {state[:10]}")
         discretized = np.digitize(state, bins, right=False)
 
         print("\nDiscretizzazione in 30 bin (prime 10 posizioni):\n", discretized[:10])
+
+    def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
+        self.render_mode = render_mode
+
+    def _set_plot_labels(self):
+        self.plots['total_profit'].set_title("Total Profit")
+        self.plots['total_profit'].set_xlabel("Episode")
+        self.plots['total_profit'].set_ylabel("Profit")
+        
+        self.plots['step_profit'].set_title("Step Profit")
+        self.plots['step_profit'].set_xlabel("Timesteps")
+        self.plots['step_profit'].set_ylabel("Profit")
+
+        self.plots['total_reward'].set_title("Total Reward")
+        self.plots['total_reward'].set_xlabel("Episode")
+        self.plots['total_reward'].set_ylabel("Reward")
+
+        self.plots['step_reward'].set_title("Step Reward")
+        self.plots['step_reward'].set_xlabel("Timesteps")
+        self.plots['step_reward'].set_ylabel("Reward")
+
+        self.plots['loss'].set_title("Loss")
+        self.plots['loss'].set_xlabel("Episode")
+        self.plots['loss'].set_ylabel("Loss")
+
+        self.plots['wallet_value'].set_title("Wallet Value")
+        self.plots['wallet_value'].set_xlabel("Episode")
+        self.plots['wallet_value'].set_ylabel("Value")
+
+    def init_plots(self):
+        fig = plt.figure(1000, figsize=(15, 5),  layout="constrained")
+        self.plots = fig.subplot_mosaic(
+            [
+                ["total_profit", "total_reward", "loss"],
+                ["step_profit", "step_reward", "wallet_value"]
+            ]
+        )
+        
+        self._set_plot_labels()
+        plt.ion()
+
+    def plot_metrics(self, **kwargs):
+        if not self.plots:
+            self.init_plots()
+        
+        for metric, value in kwargs.items():
+            self.plots[metric].clear()
+            if metric == 'step_reward':
+                self.plots[metric].scatter(range(len(value)), value, s=2**2)
+            else:
+                self.plots[metric].plot(value)
+
+        self._set_plot_labels()
+
+        # plt.ioff()
+        plt.draw()
+        plt.pause(0.01)

@@ -14,7 +14,7 @@ class CustomStocksEnv(TradingEnv):
 
     metadata = {'render_modes': ['human'], 'render_fps': 30, 'figure_num': 999, 'plot_holds': False}
 
-    def __init__(self, df:dict, window_size, frame_bound, model, initial_balance=1000):
+    def __init__(self, df:dict, window_size, frame_bound, normalize=True, initial_balance=1000):
         """
         Inizializza l'ambiente personalizzato.
         
@@ -31,7 +31,7 @@ class CustomStocksEnv(TradingEnv):
         self._step_profit = None
         self._step_reward = None
         self._actual_budget = None
-        self._model = model
+        self._normalize = normalize
         # self._purchased_assets = None
         self._assets_num = None
         self._done_deal = None
@@ -81,34 +81,15 @@ class CustomStocksEnv(TradingEnv):
         
         #signal_features = np.column_stack((prices,diff))
         
-        if self._model == 'DQN':
-            signal_features = np.column_stack((prices, diff, volumes))
-        
-            #signal_features = df['Close'].to_numpy()
-        
-            # Normalizza le feature per avere valori con media 0 e deviazione standard 1
+        signal_features = np.column_stack((prices, diff, volumes))
+    
+        #signal_features = df['Close'].to_numpy()
+    
+        # Normalizza le feature per avere valori con media 0 e deviazione standard 1
+        if self._normalize:
             scaler = StandardScaler()
             self.scaler = scaler.fit(signal_features)  # Salva lo scaler per un utilizzo futuro
             signal_features = self.scaler.transform(signal_features)
-
-        elif self._model == 'QL':
-            signal_features = np.column_stack((prices))
-        
-        return prices, signal_features
-
-    def _process_dicrete_data(self):
-                # Controlla che ci siano le colonne necessarie 
-        required_columns = ['Close']
-        if not all(col in self.df.columns for col in required_columns):
-            raise ValueError(f"Le colonne richieste {required_columns} non sono presenti nel DataFrame.")
-        # Ottieni il range dei dati da usare basandoti sui limiti specificati
-        start = self.frame_bound[0]
-        end = self.frame_bound[1]
-        df = self.df.iloc[start:end].reset_index(drop=True)
-        # Estrai i prezzi di chiusura
-        prices = df['Close'].to_numpy()
-        
-        signal_features = np.column_stack((prices))
 
         return prices, signal_features
 
@@ -329,16 +310,25 @@ class CustomStocksEnv(TradingEnv):
         """
         start = self._current_tick - self.window_size
         end = self._current_tick
-
+        #print(f"Start: {start}")
+        #print(f"End: {end}")
         if start < 0:
             start = 0
 
         if end > len(self.signal_features):
             end = len(self.signal_features)
 
+        #print(f"Signal features shape: {self.signal_features.shape}")
         obs = self.signal_features[start:end]
+        #print(f"Len of OBS: {len(obs)}")
+        #print(f"OBS shape: {obs.shape}")
+        #print(f"Window size: {self.window_size}")
+        #print(f"Start: {start}")
+        #print(f"End: {end}")
         # Aggiungi padding se l'osservazione è inferiore alla dimensione della finestra
         if len(obs) < self.window_size:
+            print("Padding added")
+            #padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
             padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
             obs = np.vstack((padding, obs))
 
@@ -354,6 +344,9 @@ class CustomStocksEnv(TradingEnv):
             action        = self._last_action,
             actual_budget = self._actual_budget,
             asset         = self._current_asset,
+            max_price = np.max(self.prices),
+            min_price = np.min(self.prices),
+            df_lenght = len(self.df)
         )
     
     def _get_wallet_value(self):
