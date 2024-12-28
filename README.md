@@ -60,7 +60,7 @@ Dove:
 ### **Regola di Aggiornamento del Q-Learning**
 
 Per uno stato \(s\), un'azione \(a\) e una ricompensa \(r\):
-$ Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_a Q(s', a') - Q(s, a) \right] $
+$$Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_a Q(s', a') - Q(s, a) \right]$$
 
 Dove:
 - $\\alpha$: Tasso di apprendimento.
@@ -71,7 +71,7 @@ Dove:
 ### **Funzione di Perdita del DQN**
 
 La perdita è calcolata come:
-$ L(\theta) = \mathbb{E}\left[ \left( r + \gamma \max_{a'} Q(s', a'; \theta^-) - Q(s, a; \theta) \right)^2 \right] $
+$$L(\theta) = \mathbb{E}\left[ \left( r + \gamma \max_{a'} Q(s', a'; \theta^-) - Q(s, a; \theta) \right)^2 \right]$$
 
 Dove $\\theta$ sono i parametri del modello online e $\\theta^-$ sono i parametri del modello target.
 
