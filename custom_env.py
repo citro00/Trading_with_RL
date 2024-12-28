@@ -1,4 +1,3 @@
-from time import time
 import numpy as np
 import pandas as pd
 from gym_anytrading.envs import TradingEnv, Positions
@@ -7,22 +6,15 @@ from sklearn.preprocessing import StandardScaler
 from action import Action
 import random
 import matplotlib.pyplot as plt
+
+
 class CustomStocksEnv(TradingEnv):
-    """
-    Ambiente di trading personalizzato estendendo TradingEnv da gym_anytrading.
-    """
+
+
 
     metadata = {'render_modes': ['human'], 'render_fps': 30, 'figure_num': 999, 'plot_holds': False}
 
     def __init__(self, df:dict, window_size, frame_bound, normalize=True, initial_balance=1000):
-        """
-        Inizializza l'ambiente personalizzato.
-        
-        :param df: DataFrame contenente i dati storici di trading.
-        :param window_size: Dimensione della finestra di osservazione (quanti giorni considerare come input).
-        :param frame_bound: Limiti di indice per i dati da utilizzare (inizio e fine).
-        :param initial_balance: Bilancio iniziale del portafoglio dell'agente.
-        """
 
         # Inizializza variabili dell'ambiente
         self.frame_bound = frame_bound
@@ -32,15 +24,12 @@ class CustomStocksEnv(TradingEnv):
         self._step_reward = None
         self._actual_budget = None
         self._normalize = normalize
-        # self._purchased_assets = None
         self._assets_num = None
         self._done_deal = None
         self._last_trade_tick = None
         self.sell_rois = [] 
         self._last_action: tuple[int, Action] = None
-
         self.df_dict = df        
-
         self._current_asset = random.choice(list(self.df_dict.keys()))
 
         # Richiama il costruttore della classe base (TradingEnv)
@@ -49,7 +38,7 @@ class CustomStocksEnv(TradingEnv):
         # Definisce lo spazio delle azioni (0 = Hold, 1 = Buy, 2 = Sell)
         self.action_space = spaces.Discrete(len(Action))
 
-        # Definisce lo spazio delle osservazioni, ovvero l'input che l'agente riceverà (osservazioni passate)
+        # Definisce lo spazio delle osservazioni
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf,
             shape=(self.window_size, self.signal_features.shape[1]),
@@ -57,35 +46,28 @@ class CustomStocksEnv(TradingEnv):
         )
 
     def _process_data(self):
+        
         """
         Prepara i dati per l'utilizzo nell'ambiente.
 
         :return: Prezzi e feature di segnale normalizzate.
         """
-
         # Controlla che ci siano le colonne necessarie 
         required_columns = ['Close', 'Volume']
         if not all(col in self.df.columns for col in required_columns):
             raise ValueError(f"Le colonne richieste {required_columns} non sono presenti nel DataFrame.")
+        
         # Ottieni il range dei dati da usare basandoti sui limiti specificati
         start = self.frame_bound[0]
         end = self.frame_bound[1]
         df = self.df.iloc[start:end].reset_index(drop=True)
-        # Estrai i prezzi di chiusura
+        # Estraggo i dati
         prices = df['Close'].to_numpy()
-        #estraggo i volumi
         volumes = df['Volume'].to_numpy()
-
-        # Estrai le feature che serviranno come input per l'agente (Close e Volume)
         diff = np.insert(np.diff(df['Close']), 0, 0)
-        
-        #signal_features = np.column_stack((prices,diff))
-        
         signal_features = np.column_stack((prices, diff, volumes))
-    
-        #signal_features = df['Close'].to_numpy()
-    
-        # Normalizza le feature per avere valori con media 0 e deviazione standard 1
+        
+        # Normalizza le feature
         if self._normalize:
             scaler = StandardScaler()
             self.scaler = scaler.fit(signal_features)  # Salva lo scaler per un utilizzo futuro
@@ -124,14 +106,6 @@ class CustomStocksEnv(TradingEnv):
         return 0
             
     def _update_profit(self, action) :
-        """
-        Aggiorna il profitto totale e calcola la ricompensa in base all'azione eseguita.
-
-        :param action: Azione scelta dall'agente.
-        :return: Reward ottenuto dall'azione.
-        """
-        
-        #self._total_profit = self._get_wallet_value() - self.initial_balance
         if action == Action.Sell.value:
           self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])
 
@@ -163,18 +137,13 @@ class CustomStocksEnv(TradingEnv):
             self._done_deal = True
             self._last_action = (self._current_tick, Action.Hold)
 
-        # Calcoliamo il profitto data l'azione scelta
         self._update_profit(action)
-
-        # Calcoliamo la reward
         self._step_reward = self._calculate_reward(action)
-        
         if (action == Action.Sell.value or action == Action.Buy.value) and self._done_deal:
             self._last_trade_tick = self._current_tick
 
         # Aggiorniamo la reward totale totale dell'episodio
         self._total_reward = self._set_total_reward(self._step_reward)
-
         observation = self._get_observation()
         info = self._get_info()
         self._update_history(info)
@@ -206,11 +175,6 @@ class CustomStocksEnv(TradingEnv):
         self._last_action = (self._current_tick, Action.Sell)
 
     def reset(self, seed=None):
-        """
-        Resetta l'ambiente al suo stato iniziale.
-
-        :return: L'osservazione iniziale e le informazioni dell'ambiente.
-        """
         self._current_asset = random.choice(list(self.df_dict.keys()))
         self.df = self.df_dict[self._current_asset]
         self.prices, self.signal_features = self._process_data()
@@ -221,7 +185,7 @@ class CustomStocksEnv(TradingEnv):
         self._assets_num = 0
         self._last_action = None
         self._last_trade_tick = 0
-        self._truncated = False  # Reset del flag truncated
+        self._truncated = False 
         obs, info = super().reset(seed=seed)
         self._total_profit = 0.
         return obs, info
@@ -233,7 +197,6 @@ class CustomStocksEnv(TradingEnv):
                 return # Plot only last action'''
 
             if action == Action.Sell:
-                #plt.scatter(tick, self.prices[tick], s=8**2, c="m", marker="v")
                 plt.plot(tick, self.prices[tick], 'v', markersize=8, color='k', label='Sell Signal')
             elif action == Action.Buy:
                 plt.plot(tick, self.prices[tick], '^', markersize=8, color='m', label='Buy Signal')
@@ -303,32 +266,17 @@ class CustomStocksEnv(TradingEnv):
         plt.pause(pause_time)
 
     def _get_observation(self):
-        """
-        Ottiene l'osservazione corrente basata sulla finestra di osservazione.
-
-        :return: Array numpy che rappresenta l'osservazione corrente.
-        """
         start = self._current_tick - self.window_size
         end = self._current_tick
-        #print(f"Start: {start}")
-        #print(f"End: {end}")
         if start < 0:
             start = 0
 
         if end > len(self.signal_features):
             end = len(self.signal_features)
-
-        #print(f"Signal features shape: {self.signal_features.shape}")
+            
         obs = self.signal_features[start:end]
-        #print(f"Len of OBS: {len(obs)}")
-        #print(f"OBS shape: {obs.shape}")
-        #print(f"Window size: {self.window_size}")
-        #print(f"Start: {start}")
-        #print(f"End: {end}")
         # Aggiungi padding se l'osservazione è inferiore alla dimensione della finestra
         if len(obs) < self.window_size:
-            print("Padding added")
-            #padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
             padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
             obs = np.vstack((padding, obs))
 
@@ -351,7 +299,6 @@ class CustomStocksEnv(TradingEnv):
     
     def _get_wallet_value(self):
         return self._actual_budget + (self.prices[self._current_tick]*self._assets_num)
-        #return self._total_profit + (self.prices[self._current_tick]*self._assets_num)
     
     def _get_total_reward(self):
         return self._total_reward

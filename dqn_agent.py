@@ -10,6 +10,8 @@ import utils as ut
 from gym_anytrading.envs import TradingEnv
 import matplotlib.pyplot as plt
 import matplotlib.axes
+
+
 class DQN(nn.Module):
 
     def __init__(self, n_observation, n_actions, hidden_layer_dim=128):
@@ -22,35 +24,37 @@ class DQN(nn.Module):
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
         return self.layer3(x)
+    
+    
 class DQNAgent:
+    
+    
     def __init__(self, state_size, action_size, batch_size, device, initial_balance=1000, render_mode: Literal['step', 'episode', 'off']='off'):
+        
         # Inizializza la dimensione dello stato e delle azioni
         self.state_size = state_size
         self.action_size = action_size
         self.batch_size = batch_size
-        self.memory = deque(maxlen=10000)  # Memoria per esperienze passate, con capacità massima di 50.000 elementi
+        self.memory = deque(maxlen=10000) 
         self.device = device
-        self.initial_balance = initial_balance  # Bilancio iniziale
+        self.initial_balance = initial_balance 
+        
         # Parametri di apprendimento per la rete neurale
-        self.gamma = 0.95  # Fattore di sconto per il valore delle ricompense future (0 < gamma < 1)
-        self.epsilon = 1.0  # Probabilità iniziale di esplorazione (tasso di esplorazione)
-        self.epsilon_min = 0.01  # Probabilità minima di esplorazione
-        self.epsilon_decay = 0.9999  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
+        self.gamma = 0.95 
+        self.epsilon = 1.0  
+        self.epsilon_min = 0.01  
+        self.epsilon_decay = 0.9999  
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         # Modello target: utilizzato per la stabilità del processo di apprendimento
         self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
-        self.target_model.load_state_dict(self.model.state_dict())  # Inizializza il modello target con i pesi del modello principale
-        self.target_model.eval()  # Il modello target viene usato solo per valutazione, non per addestramento
+        self.target_model.load_state_dict(self.model.state_dict())  
+        self.target_model.eval() 
 
         # Definizione dell'ottimizzatore e della funzione di perdita
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=1e-3)  # Ottimizzatore AdamW per aggiornare i pesi della rete
-        self.loss_fn = nn.SmoothL1Loss()  # Funzione di perdita Huber Loss, utile per gestire outliers nelle ricompense 
-
-        # Inizializzazione dei pesi della rete neurale
-        # self.model.apply(self.init_weights)
-        # self.target_model.apply(self.init_weights)
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=1e-3)  
+        self.loss_fn = nn.SmoothL1Loss()  
 
         # Plots
         self.plots: dict[str, matplotlib.axes.Axes] = None
@@ -109,19 +113,17 @@ class DQNAgent:
                 self.plots[metric].plot(value)
 
         self._set_plot_labels()
-
-        # plt.ioff()
         plt.draw()
         plt.pause(0.01)
 
     def init_weights(self, m):
-        """
-        Inizializza i pesi della rete neurale utilizzando la strategia di He.
-        """
+       
         if isinstance(m, nn.Linear):
-            nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')  # Inizializza i pesi in base alla strategia di He
+            # Inizializza i pesi in base alla strategia di He
+            nn.init.kaiming_uniform_(m.weight, nonlinearity='relu') 
             if m.bias is not None:
-                nn.init.constant_(m.bias, 0)  # Inizializza i bias a 0
+                # Inizializza i bias a 0
+                nn.init.constant_(m.bias, 0)  
   
     def act(self, state):
         """Decide un'azione basata sullo stato attuale con una policy e-greedy"""

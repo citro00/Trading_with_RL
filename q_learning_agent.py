@@ -6,16 +6,18 @@ from gym_anytrading.envs import TradingEnv
 import matplotlib.pyplot as plt
 import matplotlib.axes
 import utils as ut
+
 class QLAgent:
+    
     def __init__(self, action_size, initial_balance=1000, render_mode: Literal['step', 'episode', 'off']='off'):
         self.action_size = action_size
         self._initial_balance = initial_balance
         self.render_mode = render_mode
 
-        self.gamma = 0.95  # Fattore di sconto per il valore delle ricompense future (0 < gamma < 1)
-        self.epsilon = 1.0  # Probabilità iniziale di esplorazione (tasso di esplorazione)
-        self.epsilon_min = 0.01  # Probabilità minima di esplorazione
-        self.epsilon_decay = 0.9999  # Tasso di decadimento di epsilon per ridurre gradualmente l'esplorazione
+        self.gamma = 0.95  
+        self.epsilon = 1.0 
+        self.epsilon_min = 0.01  
+        self.epsilon_decay = 0.9999  
         self.learning_rate = 0.01
 
         self.q_values = defaultdict(lambda: np.zeros(self.action_size))
@@ -26,11 +28,9 @@ class QLAgent:
         Returns the best action with probability (1 - epsilon)
         otherwise a random action with probability epsilon to ensure exploration.
         """
-        # with probability epsilon return a random action to explore the environment
         if np.random.random() < self.epsilon:
             return random.randrange(self.action_size)
 
-        # with probability (1 - epsilon) act greedily (exploit)
         else:
             return int(np.argmax(self.q_values[obs]))
 
@@ -51,7 +51,6 @@ class QLAgent:
         per_step_metrics = {
             'step_reward': [],
             'step_profit': [],
-            #'actual_budget': []
         }
         
         per_episode_metrics = {
@@ -85,11 +84,8 @@ class QLAgent:
                 self.update(state, action, reward, terminated, next_state)
                 done = terminated or truncated
                 state = next_state
-                # FINE DI UN TIMESTEP
                 if self.render_mode == 'step':
                     env.render()
-
-                # Salva le metriche per timestep
                 for metric, arr in per_step_metrics.items():
                     arr.append(info[metric])
 
@@ -102,11 +98,7 @@ class QLAgent:
             for metric in ['total_profit', 'total_reward']:
                 per_episode_metrics[metric].append(info[metric])
             if self.render_mode == 'episode':
-                #self.plot_metrics(**per_step_metrics)
-                #self.plot_metrics(**per_episode_metrics)
                 pass
-
-            #total_profit = info.get('total_profit', 0)
             total_profit = info['total_profit']
             wallet_value = info['wallet_value']
             average_roi = (total_profit / self._initial_balance) * 100
@@ -147,7 +139,6 @@ class QLAgent:
                 env.render()
 
         print(f"Total profit: {info['total_profit']}\nTotal reward: {total_reward}")
-        # Stampa il profitto totale ottenuto durante la valutazione
         print(f"Valutazione - Total Profit: {info['total_profit']:.2f}")
  
         if self.render_mode == 'episode':
@@ -217,6 +208,5 @@ class QLAgent:
 
         self._set_plot_labels()
 
-        # plt.ioff()
         plt.draw()
         plt.pause(0.01)
