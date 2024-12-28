@@ -1,77 +1,136 @@
 import pandas as pd
-from custom_env import CustomStocksEnv
-from dqn_agent import DQNAgent
-import utils as ut
 import torch
 import matplotlib.pyplot as plt
+
+from custom_env import CustomStocksEnv
+from dqn_agent import DQNAgent
 from q_learning_agent import QLAgent
-
-# Parametri per il download dei dati
-symbols = ["AAPL", "NVDA", "TSLA", "RIOT", "UBER", "AMZN", "UAA", "INTC", "F", "GME", "QUBT"]
-
-data = ut.get_data_dict("2020-01-01", "2024-12-30", symbols)
-keys = list(data.keys())
-
-window_size = 30
-frame_bound = (window_size, len(data.get(keys[0])))
-initial_balance = 2000
-model = "DQN"
+import utils as ut
 
 
-print("Inizializzazione dell'ambiente...")
-env = CustomStocksEnv(
-    df=data,
-    window_size=window_size,
-    frame_bound=frame_bound,
-    normalize=True if model == "DQN" else False,
-    initial_balance=initial_balance
-)
-print(f"Ambiente inizializzato. Prezzi shape: {env.prices.shape}, Signal features shape: {env.signal_features.shape}")
+def setup_environment(symbols, start_date, end_date, window_size, initial_balance, model):
+    """
+    Crea e restituisce l'ambiente CustomStocksEnv, dati i parametri.
+    """
+    # Scarica i dati come dizionario
+    data = ut.get_data_dict(start_date, end_date, symbols)
+    
+    # Crea i limiti del frame
+    frame_bound = (window_size, len(data.get(list(data.keys())[0])))
+    
+    # Crea l'ambiente
+    env = CustomStocksEnv(
+        df=data,
+        window_size=window_size,
+        frame_bound=frame_bound,
+        normalize=True if model == "DQN" else False,
+        initial_balance=initial_balance
+    )
+    return env
 
-episodes = 200
-action_size = env.action_space.n
+
+def select_agent(model, state_size, action_size, batch_size, device, initial_balance):
+    """
+    Restituisce l'agente in base al modello scelto.
+    """
+    if model == "DQN":
+        agent = DQNAgent(
+            state_size=state_size,
+            action_size=action_size,
+            batch_size=batch_size,
+            device=device,
+            initial_balance=initial_balance
+        )
+    elif model == "QL":
+        agent = QLAgent(
+            action_size=action_size,
+            initial_balance=initial_balance
+        )
+    else:
+        raise ValueError(f"Modello '{model}' non supportato.")
+    return agent
 
 
-if model == "DQN":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    state_size = env.observation_space.shape[0] * env.observation_space.shape[1]
-    batch_size = 64
+def main():
+    # Chiedi all’utente che modello usare
+    model = input("Inserisci il modello da utilizzare (DQN/QL): ").strip().upper()
+    if model not in ["DQN", "QL"]:
+        raise ValueError("Modello non valido. Usa 'DQN' o 'QL'.")
 
-    print(f"State size: {state_size}, Action size: {action_size}, Batch size: {batch_size}, Device: {device}")
+    # Parametri base
+    symbols = ["AAPL", "NVDA", "TSLA", "RIOT", "UBER", "AMZN", "UAA", "INTC", "F", "GME", "QUBT"]
+    window_size = 30
+    initial_balance = 2000
+    episodes = 200
+    
+    print("Inizializzazione dell'ambiente di training...")
+    env = setup_environment(
+        symbols=symbols,
+        start_date="2020-01-01",
+        end_date="2024-12-30",
+        window_size=window_size,
+        initial_balance=initial_balance,
+        model=model
+    )
 
+    # Stampa info su prezzi e features
+    print(f"Ambiente inizializzato. Prezzi shape: {env.prices.shape}, "
+          f"Signal features shape: {env.signal_features.shape}")
+    
+    # Ottieni la dimensione dell'azione
+    action_size = env.action_space.n
+
+    # Se DQN, prepariamo device, state_size e batch
+    if model == "DQN":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        state_size = env.observation_space.shape[0] * env.observation_space.shape[1]
+        batch_size = 64
+        
+        print(f"State size: {state_size}, Action size: {action_size}, "
+              f"Batch size: {batch_size}, Device: {device}")
+    else:
+        # Per Q-Learning questi parametri non servono
+        device = None
+        state_size = None
+        batch_size = None
+
+    # Inizializza agente
     print("Inizializzazione dell'agente...")
-    agent = DQNAgent(
+    agent = select_agent(
+        model=model,
         state_size=state_size,
         action_size=action_size,
         batch_size=batch_size,
         device=device,
         initial_balance=initial_balance
     )
+    
+    # Settiamo la render mode: "episode" durante il training
+    agent.set_render_mode("episode")
+    
+    print("Avvio del training...")
+    agent.train_agent(env, episodes)
+    print("Training completato.")
 
-
-elif model == "QL":
-    agent = QLAgent(
-        action_size,
-        initial_balance
+    # Passiamo a valutazione con un nuovo dataset
+    eval_symbols = ["MRVL"]
+    print("Inizializzazione dell'ambiente di valutazione...")
+    eval_env = setup_environment(
+        symbols=eval_symbols,
+        start_date="2020-01-01",
+        end_date="2024-12-30",
+        window_size=window_size,
+        initial_balance=initial_balance,
+        model=model
     )
 
-agent.set_render_mode("episode")
+    print("Inizio valutazione dell'agente.")
+    agent.set_render_mode("step")
+    total_profit, total_reward, info = agent.evaluate_agent(eval_env)
 
-agent.train_agent(env, episodes)
+    # Mostra il grafico (o i grafici) generati
+    plt.show(block=True)  # Aspetta la chiusura della finestra del grafico
 
-symbols = ["MRVL"]
-data = ut.get_data_dict("2020-01-01", "2024-12-30", symbols)
 
-env = CustomStocksEnv(
-    df=data,
-    window_size=window_size,
-    frame_bound=frame_bound,
-    normalize=True if model == "DQN" else False,
-    initial_balance=initial_balance
-)
-
-print("Inizio valutazione dell'agente.")
-agent.set_render_mode("step")
-total_profit, total_reward, info = agent.evaluate_agent(env)
-
-plt.show(block=True)  # Aspetta la chiusura della finestra del grafico
+if __name__ == "__main__":
+    main()
