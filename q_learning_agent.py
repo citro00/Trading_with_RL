@@ -9,7 +9,22 @@ import utils as ut
 
 class QLAgent:
     
+    """
+    QLAgent è un agente di apprendimento per il trading basato su Q-Learning tabulare. 
+    Utilizza una tabella Q per stimare il valore delle azioni in base agli stati discreti. 
+    L'agente supporta l'apprendimento tramite aggiornamenti incrementali dei valori Q e l'addestramento 
+    in ambienti di trading simulati.
+    """
+    
     def __init__(self, action_size, initial_balance=1000, render_mode: Literal['step', 'episode', 'off']='off'):
+        
+        """
+        Inizializza l'agente con i parametri principali per il Q-Learning, inclusi la tabella Q,    
+        i parametri di esplorazione e apprendimento, e la configurazione per il rendering.
+        :param action_size: Numero di azioni disponibili.
+        :param initial_balance: Bilancio iniziale per il trading.
+        :param render_mode: Modalità di rendering ('step', 'episode', 'off').
+        """
         self.action_size = action_size
         self._initial_balance = initial_balance
         self.render_mode = render_mode
@@ -23,11 +38,15 @@ class QLAgent:
         self.q_values = defaultdict(lambda: np.zeros(self.action_size))
         self.training_error = []
 
+
     def act(self, obs):
+        
         """
-        Returns the best action with probability (1 - epsilon)
-        otherwise a random action with probability epsilon to ensure exploration.
+        Seleziona un'azione basandosi sull'esplorazione casuale (ε-greedy) o sfruttando la tabella Q.
+        :param obs: Stato corrente osservato.
+        :return: Azione selezionata (indice).
         """
+        
         if np.random.random() < self.epsilon:
             return random.randrange(self.action_size)
 
@@ -35,6 +54,17 @@ class QLAgent:
             return int(np.argmax(self.q_values[obs]))
 
     def update(self, obs, action, reward, terminated, next_obs):
+        
+        """
+        Aggiorna la tabella Q utilizzando l'equazione di aggiornamento del Q-Learning. 
+        Calcola la differenza temporale per migliorare la stima dei valori Q.
+        :param obs: Stato corrente.
+        :param action: Azione eseguita.
+        :param reward: Ricompensa ricevuta.
+        :param terminated: Flag che indica se l'episodio è terminato.
+        :param next_obs: Stato successivo osservato.
+        """
+        
         future_q_value = (not terminated) * np.max(self.q_values[next_obs])
         temporal_difference = (reward + self.gamma * future_q_value - self.q_values[obs][action])
 
@@ -42,12 +72,23 @@ class QLAgent:
         self.training_error.append(temporal_difference)
     
     def dacay_epsilon(self):
+        
+        """
+        Riduce gradualmente il valore di epsilon per diminuire l'esplorazione e favorire lo sfruttamento 
+        della conoscenza acquisita.
+        """
+
         self.epsilon = max(self.epsilon_min, self.epsilon - self.epsilon_decay)
 
     def train_agent(self, env:TradingEnv, episodes):
+        
         """
-        Addestra l'agente interagendo con l'ambiente.
+        Addestra l'agente interagendo con l'ambiente di trading per un numero specificato di episodi. 
+        Registra le metriche di performance e aggiorna la tabella Q in base alle esperienze.
+        :param env: Ambiente di trading.
+        :param episodes: Numero di episodi di addestramento.
         """
+
         per_step_metrics = {
             'step_reward': [],
             'step_profit': [],
@@ -106,7 +147,7 @@ class QLAgent:
             print(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
-            #self.plot_metrics(**per_step_metrics)
+            #self.plot_metrics(**per_step_metrics) lascio le righe commentate PLOT DA FINIRE(CARMINE)
             #self.plot_metrics(**per_episode_metrics)
             #plt.show(block=True)
             pass
@@ -114,6 +155,14 @@ class QLAgent:
         print("Addestramento completato.")
 
     def evaluate_agent(self, env: TradingEnv):
+        
+        """
+        Valuta l'agente eseguendo un episodio di trading con epsilon impostato a 0 per disabilitare l'esplorazione. 
+        Registra e restituisce i risultati finali.
+        :param env: Ambiente di trading.
+        :return: Profitto totale, ricompensa totale e informazioni aggiuntive.
+        """
+
         self.epsilon = 0
         state, info = env.reset()
         state = state[:,0]
@@ -147,6 +196,16 @@ class QLAgent:
         return info['total_profit'], total_reward, info
 
     def _discretize(self, state, max_price, min_price):
+        
+        """
+        Trasforma uno stato continuo in uno discreto utilizzando bin definibili sull'intervallo 
+        dei prezzi minimi e massimi osservati.
+        :param state: Stato continuo da discretizzare.
+        :param max_price: Prezzo massimo osservato nell'ambiente.
+        :param min_price: Prezzo minimo osservato nell'ambiente.
+        :return: Stato discretizzato.
+        """
+
         k = 25
         bins = np.linspace(min_price, max_price, k + 1)
         print(f"Bins: {bins}")
@@ -156,6 +215,12 @@ class QLAgent:
         print("\nDiscretizzazione in 30 bin (prime 10 posizioni):\n", discretized[:10])
 
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
+        
+        """
+        Configura la modalità di rendering per l'agente.
+        :param render_mode: Modalità di rendering ('step', 'episode', 'off').
+        """
+        
         self.render_mode = render_mode
 
     def _set_plot_labels(self):

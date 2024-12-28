@@ -15,7 +15,7 @@ keys = list(data.keys())
 window_size = 30
 frame_bound = (window_size, len(data.get(keys[0])))
 initial_balance = 2000
-model = "QL"
+model = "DQN"
 
 
 print("Inizializzazione dell'ambiente...")
