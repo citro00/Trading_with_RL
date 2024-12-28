@@ -92,7 +92,7 @@ Il DQN è composto da:
 - Due layer nascosti con attivazioni ReLU.
 - Output: Q-valori per ogni azione.
 
-$$ \text{Q-valori: } Q(s, a) \approx \text{Rete Neurale}(s; \theta) $$
+$$\text{Q-valori: } Q(s, a) \approx \text{Rete Neurale}(s; \theta)$$
 
 ---
 
