@@ -9,8 +9,6 @@ from collections import deque
 from plots import MetricPlots
 import utils as ut
 from gym_anytrading.envs import TradingEnv
-import matplotlib.pyplot as plt
-import matplotlib.axes
 
 
 
@@ -246,8 +244,7 @@ class DQNAgent:
 
         if self.render_mode == 'off':
             self._metrics_display.plot_metrics(**per_step_metrics)
-            self._metrics_display.plot_metrics(**per_episode_metrics)
-            plt.show(block=True)
+            self._metrics_display.plot_metrics(**per_episode_metrics, show=True)
         print("Addestramento completato.")
 
     def evaluate_agent(self, env:TradingEnv):

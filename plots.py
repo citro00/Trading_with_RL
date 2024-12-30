@@ -38,7 +38,7 @@ class MetricPlots:
         self.plots['wallet_value'].set_xlabel("Episode")
         self.plots['wallet_value'].set_ylabel("Value")
 
-    def plot_metrics(self, **kwargs):
+    def plot_metrics(self, show=False, **kwargs):
         if not self.plots:
             self.init_plots()
         
@@ -52,3 +52,6 @@ class MetricPlots:
         self._set_plot_labels()
         plt.draw()
         plt.pause(0.01)
+
+        if show:
+            plt.show(block=True)
