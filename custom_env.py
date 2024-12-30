@@ -146,7 +146,7 @@ class CustomStocksEnv(TradingEnv):
         self._done_deal = False
 
         if self._current_tick == self._end_tick:
-            self._total_profit = self._get_wallet_value() - self.initial_balance
+            self._total_profit = self._get_total_profit()
             self._terminate = True
         
         # Tronchiamo l'esecuzione se budget è 0
@@ -339,7 +339,8 @@ class CustomStocksEnv(TradingEnv):
             step_reward   = self._step_reward,
             total_reward  = self._get_total_reward(),
             step_profit   = self._step_profit,
-            total_profit  = self._total_profit,
+            total_profit  = self._get_total_profit(),
+            roi           = self._get_roi(),  
             wallet_value = self._get_wallet_value(),
             action        = self._last_action,
             actual_budget = self._actual_budget,
@@ -362,6 +363,20 @@ class CustomStocksEnv(TradingEnv):
         :return: Ricompensa totale.
         """
         return self._total_reward
+    
+    def _get_total_profit(self):
+        """
+        Calcola il profitto totale accumulato fino al momento corrente.
+        :return: Profitto totale.
+        """
+        return self._get_wallet_value() - self.initial_balance if (self._terminate or self._truncated) else 0
+    
+    def _get_roi(self):
+        """
+        Calcola il ritorno sull'investimento (ROI) in percentuale.
+        :return: ROI in percentuale.
+        """
+        return (self._get_total_profit() / self.initial_balance) * 100
     
     def _set_total_reward(self, step_reward):
         """

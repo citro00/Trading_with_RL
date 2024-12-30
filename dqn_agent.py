@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque
+from plots import MetricPlots
 import utils as ut
 from gym_anytrading.envs import TradingEnv
 import matplotlib.pyplot as plt
@@ -77,7 +78,7 @@ class DQNAgent:
         self.gamma = 0.95 
         self.epsilon = 1.0  
         self.epsilon_min = 0.01  
-        self.epsilon_decay = 0.9999  
+        self.epsilon_decay = 0.9999
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
@@ -89,9 +90,8 @@ class DQNAgent:
         self.loss_fn = nn.SmoothL1Loss()  
 
         # Plots
-        self.plots: dict[str, matplotlib.axes.Axes] = None
+        self._metrics_display = MetricPlots()
         self.render_mode = render_mode
-        self._is_first_rendering = True
 
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
         """
@@ -100,58 +100,6 @@ class DQNAgent:
         """
 
         self.render_mode = render_mode
-
-    def _set_plot_labels(self):
-        self.plots['total_profit'].set_title("Total Profit")
-        self.plots['total_profit'].set_xlabel("Episode")
-        self.plots['total_profit'].set_ylabel("Profit")
-        
-        self.plots['step_profit'].set_title("Step Profit")
-        self.plots['step_profit'].set_xlabel("Timesteps")
-        self.plots['step_profit'].set_ylabel("Profit")
-
-        self.plots['total_reward'].set_title("Total Reward")
-        self.plots['total_reward'].set_xlabel("Episode")
-        self.plots['total_reward'].set_ylabel("Reward")
-
-        self.plots['step_reward'].set_title("Step Reward")
-        self.plots['step_reward'].set_xlabel("Timesteps")
-        self.plots['step_reward'].set_ylabel("Reward")
-
-        self.plots['loss'].set_title("Loss")
-        self.plots['loss'].set_xlabel("Episode")
-        self.plots['loss'].set_ylabel("Loss")
-
-        self.plots['wallet_value'].set_title("Wallet Value")
-        self.plots['wallet_value'].set_xlabel("Episode")
-        self.plots['wallet_value'].set_ylabel("Value")
-
-    def init_plots(self):
-        fig = plt.figure(1000, figsize=(15, 5),  layout="constrained")
-        self.plots = fig.subplot_mosaic(
-            [
-                ["total_profit", "total_reward", "loss"],
-                ["step_profit", "step_reward", "wallet_value"]
-            ]
-        )
-        
-        self._set_plot_labels()
-        plt.ion()
-
-    def plot_metrics(self, **kwargs):
-        if not self.plots:
-            self.init_plots()
-        
-        for metric, value in kwargs.items():
-            self.plots[metric].clear()
-            if metric == 'step_reward':
-                self.plots[metric].scatter(range(len(value)), value, s=2**2)
-            else:
-                self.plots[metric].plot(value)
-
-        self._set_plot_labels()
-        plt.draw()
-        plt.pause(0.01)
 
     def init_weights(self, m):
         """
@@ -240,10 +188,10 @@ class DQNAgent:
         }
         
         per_episode_metrics = {
-            'loss': [],
+            'roi': [],
             'total_reward': [],
             'total_profit': [],
-            'wallet_value': []
+            'wallet_value': [],
         }
 
         print(f"Inizio addestramento per {episodes} episodi.")
@@ -274,8 +222,8 @@ class DQNAgent:
                 for metric, arr in per_step_metrics.items():
                     arr.append(info[metric])
                 if self.render_mode == 'step':
-                    self.plot_metrics(**per_step_metrics)
-                
+                    self._metrics_display.plot_metrics(**per_step_metrics)
+
             # Aggiorna il modello target ogni  5 episodi per stabilizzare l'apprendimento
             if episode % 5 == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
@@ -284,22 +232,21 @@ class DQNAgent:
                 env.render_all(f"Episode {episode}")
 
             average_loss = total_loss / loss_count if loss_count > 0 else 0
-            per_episode_metrics['loss'].append(average_loss)
-            for metric in ['total_profit', 'total_reward']:
+            for metric in per_episode_metrics.keys():
                 per_episode_metrics[metric].append(info[metric])
             if self.render_mode == 'episode':
-                self.plot_metrics(**per_step_metrics)
-                self.plot_metrics(**per_episode_metrics)
+                self._metrics_display.plot_metrics(**per_step_metrics)
+                self._metrics_display.plot_metrics(**per_episode_metrics)
 
             total_profit = info['total_profit']
             wallet_value = info['wallet_value']
-            average_roi = (total_profit / self.initial_balance) * 100
-        
-            print(f"Episode {episode}/{episodes} # Dataset: {env._current_asset} # ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
+            roi = info['roi']
+
+            print(f"Episode {episode}/{episodes} # Dataset: {env._current_asset} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
-            self.plot_metrics(**per_step_metrics)
-            self.plot_metrics(**per_episode_metrics)
+            self._metrics_display.plot_metrics(**per_step_metrics)
+            self._metrics_display.plot_metrics(**per_episode_metrics)
             plt.show(block=True)
         print("Addestramento completato.")
 
