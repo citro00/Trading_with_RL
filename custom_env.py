@@ -1,6 +1,5 @@
 import numpy as np
-import pandas as pd
-from gym_anytrading.envs import TradingEnv, Positions
+from gym_anytrading.envs import TradingEnv
 from gymnasium import spaces
 from sklearn.preprocessing import StandardScaler
 from action import Action
@@ -146,7 +145,6 @@ class CustomStocksEnv(TradingEnv):
         self._done_deal = False
 
         if self._current_tick == self._end_tick:
-            self._total_profit = self._get_total_profit()
             self._terminate = True
         
         # Tronchiamo l'esecuzione se budget è 0
@@ -178,9 +176,6 @@ class CustomStocksEnv(TradingEnv):
 
         if self.render_mode == 'human':
             self._render_frame() 
-
-        if self._terminate or self._truncated:
-            info['sell_rois'] = self.sell_rois
             
         return observation, self._step_reward, self._terminate, self._truncated, info
     
@@ -253,16 +248,14 @@ class CustomStocksEnv(TradingEnv):
             plt.plot(self.prices, color='k', lw=1.1, label='Price')
 
 
-        print(f"Last action: {self._last_action}")
         if self._last_action:
             _plot_action(*self._last_action)
 
         plt.suptitle(
-            "Total Reward: %.6f" % self._total_reward + ' ~ ' +
-            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
-            "wallet value: %.6f" % self._get_wallet_value() + ' ~ ' +
-            "Asset number :%.6f" % self._assets_num + '~' +
-            "Actual budget: %.6f" % self._actual_budget + '~' +
+            "Total Reward: %.6f" % self._get_total_reward() + ' ~ ' +
+            "Total Profit: %.6f" % self._get_total_profit() + ' ~ ' +
+            "Wallet value: %.6f" % self._get_wallet_value() + ' ~ ' +
+            "ROI: %.6f" % self._get_roi() + ' ~ ' +
             "Asset: %s" % self._current_asset
         )
 
@@ -290,11 +283,10 @@ class CustomStocksEnv(TradingEnv):
             plt.title(title)
         
         plt.suptitle(
-            "Total Reward: %.6f" % self._total_reward + ' ~ ' +
-            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
-            "wallet value: %.6f" % self._get_wallet_value() + ' ~ ' +
-            "Asset number :%.6f" % self._assets_num + '~' +
-            "Actual budget: %.6f" % self._actual_budget + '~' +
+            "Total Reward: %.6f" % self._get_total_reward() + ' ~ ' +
+            "Total Profit: %.6f" % self._get_total_profit() + ' ~ ' +
+            "Wallet value: %.6f" % self._get_wallet_value() + ' ~ ' +
+            "ROI: %.6f" % self._get_roi() + ' ~ ' +
             "Asset: %s" % self._current_asset
         )
 
