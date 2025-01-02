@@ -1,3 +1,4 @@
+import argparse
 import pandas as pd
 import torch
 import matplotlib.pyplot as plt
@@ -52,16 +53,20 @@ def select_agent(model, state_size, action_size, batch_size, device, initial_bal
 
 
 def main():
-    # Chiedi all’utente che modello usare
-    model = input("Inserisci il modello da utilizzare (DQN/QL): ").strip().upper()
-    if model not in ["DQN", "QL"]:
-        raise ValueError("Modello non valido. Usa 'DQN' o 'QL'.")
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("--model", type=str, choices=["DQN", "QL"], default="DQN", help="Modello da utilizzare (DQN/QL)")
+    argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
+    argparser.add_argument("--initial-balance", type=int, default=10000, help="Saldo iniziale")
+
+    args = argparser.parse_args()
+
 
     # Parametri base
+    model = args.model
+    episodes = args.episodes
+    initial_balance = args.initial_balance
     symbols = ["AAPL", "NVDA", "TSLA", "RIOT", "UBER", "AMZN", "UAA", "INTC", "F", "GME", "QUBT"]
     window_size = 30
-    initial_balance = 2000
-    episodes = 200
     
     print("Inizializzazione dell'ambiente di training...")
     env = setup_environment(

@@ -51,7 +51,7 @@ class MetricPlots:
 
         self._set_plot_labels()
         plt.draw()
-        plt.pause(0.01)
+        plt.pause(0.001)
 
         if show:
             plt.show(block=True)
