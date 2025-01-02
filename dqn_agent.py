@@ -73,10 +73,10 @@ class DQNAgent:
         self.initial_balance = initial_balance 
         
         # Parametri di apprendimento per la rete neurale
-        self.gamma = 0.95 
+        self.gamma = 0.95
         self.epsilon = 1.0  
         self.epsilon_min = 0.01  
-        self.epsilon_decay = 0.9999
+        self.epsilon_decay = 0.991
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
@@ -110,6 +110,13 @@ class DQNAgent:
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)  
   
+    def dacay_epsilon(self):
+        """
+        Riduce gradualmente il valore di epsilon per diminuire l'esplorazione e favorire lo sfruttamento 
+        della conoscenza acquisita.
+        """
+        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+
     def act(self, state):
         """
         Seleziona un'azione basandosi su esplorazione casuale (ε-greedy) o sfruttamento del modello DQN.
@@ -167,9 +174,10 @@ class DQNAgent:
         self.optimizer.step()
 
         # Riduci il tasso di esplorazione (epsilon) per favorire l'uso delle azioni apprese
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-            
+        # if self.epsilon > self.epsilon_min:
+        #     self.epsilon *= self.epsilon_decay
+        # self.dacay_epsilon()
+
         return loss.item()
 
     def train_agent(self, env:TradingEnv, episodes ):
@@ -225,6 +233,8 @@ class DQNAgent:
             # Aggiorna il modello target ogni  5 episodi per stabilizzare l'apprendimento
             if episode % 5 == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
+
+            self.dacay_epsilon()
             
             if self.render_mode == 'episode':
                 env.render_all(f"Episode {episode}")
