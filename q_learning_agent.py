@@ -6,6 +6,7 @@ from gym_anytrading.envs import TradingEnv
 import matplotlib.pyplot as plt
 import matplotlib.axes
 import utils as ut
+from plots import MetricPlots
 
 class QLAgent:
     
@@ -32,12 +33,11 @@ class QLAgent:
         self.gamma = 0.95  
         self.epsilon = 1.0 
         self.epsilon_min = 0.01  
-        self.epsilon_decay = 0.9999  
-        self.learning_rate = 0.01
+        self.epsilon_decay = 0.991
+        self.learning_rate = 0.001
 
         self.q_values = defaultdict(lambda: np.zeros(self.action_size))
-        self.training_error = []
-
+        self._metrics_display = MetricPlots()
 
     def act(self, obs):
         
@@ -69,7 +69,7 @@ class QLAgent:
         temporal_difference = (reward + self.gamma * future_q_value - self.q_values[obs][action])
 
         self.q_values[obs][action] = (self.q_values[obs][action] + self.learning_rate * temporal_difference)
-        self.training_error.append(temporal_difference)
+        # self.training_error.append(temporal_difference)
     
     def dacay_epsilon(self):
         
@@ -78,7 +78,7 @@ class QLAgent:
         della conoscenza acquisita.
         """
 
-        self.epsilon = max(self.epsilon_min, self.epsilon - self.epsilon_decay)
+        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
     def train_agent(self, env:TradingEnv, episodes):
         
@@ -95,7 +95,7 @@ class QLAgent:
         }
         
         per_episode_metrics = {
-            'loss': [],
+            'roi': [],
             'total_reward': [],
             'total_profit': [],
             'wallet_value': []
@@ -131,25 +131,30 @@ class QLAgent:
                     arr.append(info[metric])
 
                 if self.render_mode == 'step':
-                    self.plot_metrics(**per_step_metrics)
+                    self._metrics_display.plot_metrics(**per_step_metrics)
+
+            self.dacay_epsilon()
 
             if self.render_mode == 'episode':
                 env.render_all(f"Episode {episode}")
 
-            for metric in ['total_profit', 'total_reward']:
+            for metric in per_episode_metrics.keys():
                 per_episode_metrics[metric].append(info[metric])
+            if self.render_mode == 'episode':
+                self._metrics_display.plot_metrics(**per_step_metrics)
+                self._metrics_display.plot_metrics(**per_episode_metrics)
+
             if self.render_mode == 'episode':
                 pass
             total_profit = info['total_profit']
             wallet_value = info['wallet_value']
-            average_roi = (total_profit / self._initial_balance) * 100
+            roi = info['roi']
 
-            print(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {average_roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Epsilon: {self.epsilon:.4f}")
+            print(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
-            #self.plot_metrics(**per_step_metrics) lascio le righe commentate PLOT DA FINIRE(CARMINE)
-            #self.plot_metrics(**per_episode_metrics)
-            #plt.show(block=True)
+            self._metrics_display.plot_metrics(**per_step_metrics)
+            self._metrics_display.plot_metrics(**per_episode_metrics, show=True)
             pass
 
         print("Addestramento completato.")
@@ -206,13 +211,14 @@ class QLAgent:
         :return: Stato discretizzato.
         """
 
-        k = 25
+        k = 10
         bins = np.linspace(min_price, max_price, k + 1)
-        print(f"Bins: {bins}")
-        print(f"State: {state[:10]}")
+        # print(f"Bins: {bins}")
+        # print(f"State: {state[:10]}")
         discretized = np.digitize(state, bins, right=False)
 
-        print("\nDiscretizzazione in 30 bin (prime 10 posizioni):\n", discretized[:10])
+        # print("\nDiscretizzazione in 12 bin (prime 10 posizioni):\n", discretized[:10])
+        return tuple(discretized.astype(np.int64))
 
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
         
