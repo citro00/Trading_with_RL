@@ -114,7 +114,7 @@ def main():
     agent.set_render_mode("episode")
     
     print("Avvio del training...")
-    agent.train_agent(env, episodes)
+    agent.train_agent(env, episodes, seed=True)
     print("Training completato.")
 
     # Passiamo a valutazione con un nuovo dataset

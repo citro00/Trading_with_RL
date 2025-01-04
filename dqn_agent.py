@@ -180,7 +180,7 @@ class DQNAgent:
 
         return loss.item()
 
-    def train_agent(self, env:TradingEnv, episodes ):
+    def train_agent(self, env:TradingEnv, episodes, seed=False):
         """
         Addestra l'agente su un ambiente di trading per un numero specificato di episodi. Aggiorna 
         il modello target periodicamente e traccia le metriche di performance.
@@ -202,7 +202,7 @@ class DQNAgent:
 
         print(f"Inizio addestramento per {episodes} episodi.")
         for episode in range(1, episodes + 1):
-            state, info = env.reset()
+            state, info = env.reset(seed=episode if seed else None)
             for metric in per_step_metrics.keys():
                 per_step_metrics[metric] = []
 

@@ -205,6 +205,15 @@ class CustomStocksEnv(TradingEnv):
         self._done_deal = True
         self._last_action = (self._current_tick, Action.Sell)
 
+    def _seed(self, seed=None):
+        """
+        Imposta il seed per la riproducibilità.
+        :param seed: Seed op
+        """
+        np.random.seed(seed)
+        random.seed(seed)
+        self.action_space.seed(seed)
+
     def reset(self, seed=None):
         
         """
@@ -212,10 +221,6 @@ class CustomStocksEnv(TradingEnv):
         :param seed: Seed opzionale per la riproducibilità.
         :return: Osservazione iniziale e informazioni aggiuntive.       
         """
-
-        self._current_asset = random.choice(list(self.df_dict.keys()))
-        self.df = self.df_dict[self._current_asset]
-        self.prices, self.signal_features = self._process_data()
         self._step_profit = 0.
         self._total_reward = 0.
         self._step_reward = 0.
@@ -224,8 +229,15 @@ class CustomStocksEnv(TradingEnv):
         self._last_action = None
         self._last_trade_tick = 0
         self._truncated = False 
+        self._terminate = False
         obs, info = super().reset(seed=seed)
+
         self._total_profit = 0.
+        self._seed(seed)
+        self._current_asset = random.choice(list(self.df_dict.keys()))
+        self.df = self.df_dict[self._current_asset]
+        self.prices, self.signal_features = self._process_data()
+        
         return obs, info
 
     def render(self, mode='human'):
