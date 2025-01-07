@@ -252,7 +252,7 @@ class DQNAgent:
             wallet_value = info['wallet_value']
             roi = info['roi']
 
-            tqdm(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
+            tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
             self._metrics_display.plot_metrics(**per_step_metrics)
