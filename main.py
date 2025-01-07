@@ -89,6 +89,7 @@ def main():
     if model == "DQN":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         state_size = env.observation_space.shape[0] * env.observation_space.shape[1]
+        print(f"State_size = {state_size}")
         batch_size = 64
         
         print(f"State size: {state_size}, Action size: {action_size}, "

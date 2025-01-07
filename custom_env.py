@@ -49,7 +49,8 @@ class CustomStocksEnv(TradingEnv):
 
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf,
-            shape=(self.window_size, self.signal_features.shape[1]),
+            #shape=(self.window_size, self.signal_features.shape[1]),
+            shape=(1, self.window_size*self.signal_features.shape[1]+2),
             dtype=np.float32
         )
 
@@ -89,7 +90,7 @@ class CustomStocksEnv(TradingEnv):
         :return: Ricompensa associata all'azione.
         """
             
-        if action == Action.Sell.value and self._step_profit > 0 and self._done_deal:
+        '''if action == Action.Sell.value and self._step_profit > 0 and self._done_deal:
             sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) + 0.2
             return sell_reward
         elif action == Action.Sell.value and self._step_profit <= 0 and self._done_deal:
@@ -115,6 +116,12 @@ class CustomStocksEnv(TradingEnv):
         if not self._done_deal:
             return -0.5
 
+        return 0'''
+        if self._get_total_profit() > 0:
+            return np.log(self._get_wallet_value() / self.initial_balance) + 0.5
+        elif self._get_total_profit() <= 0:
+            return np.log(self._get_wallet_value() / self.initial_balance) - 0.3
+        
         return 0
     
             
@@ -193,7 +200,6 @@ class CustomStocksEnv(TradingEnv):
         self._last_action = (self._current_tick, Action.Buy)
 
         self._done_deal = True
-    
     
     def sell(self): 
         """
@@ -329,6 +335,8 @@ class CustomStocksEnv(TradingEnv):
         if len(obs) < self.window_size:
             padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
             obs = np.vstack((padding, obs))
+        obs = obs.flatten()
+        obs = np.concatenate((obs, [self._get_total_profit()], [self._get_wallet_value()]), axis=0)
 
         return obs
     
