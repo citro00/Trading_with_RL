@@ -80,7 +80,7 @@ class QLAgent:
 
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
-    def train_agent(self, env:TradingEnv, episodes):
+    def train_agent(self, env:TradingEnv, episodes, seed=False):
         
         """
         Addestra l'agente interagendo con l'ambiente di trading per un numero specificato di episodi. 
@@ -103,7 +103,7 @@ class QLAgent:
 
         print(f"Inizio addestramento per {episodes} episodi.")
         for episode in range(1, episodes + 1):
-            state, info = env.reset()
+            state, info = env.reset(seed=episode if seed else None)
             state = state[:,0]
             state = ut.state_formatter(state)
             state = self._discretize(state, info["max_price"], info["min_price"])
