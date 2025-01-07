@@ -5,6 +5,7 @@ import random
 from gym_anytrading.envs import TradingEnv
 import matplotlib.pyplot as plt
 import matplotlib.axes
+from tqdm import tqdm
 import utils as ut
 from plots import MetricPlots
 import pandas as pd
@@ -70,6 +71,7 @@ class QLAgent:
 
         self.q_values[obs][action] = (self.q_values[obs][action] + self.learning_rate * temporal_difference)
         # self.training_error.append(temporal_difference)
+        return temporal_difference
     
     def dacay_epsilon(self):
         
@@ -102,7 +104,7 @@ class QLAgent:
         }
 
         print(f"Inizio addestramento per {episodes} episodi.")
-        for episode in range(1, episodes + 1):
+        for episode in tqdm(range(1, episodes + 1), desc="Training Progress", unit="episode"):
             state, info = env.reset(seed=episode if seed else None)
             state = state[:,0]
             state = ut.state_formatter(state)
@@ -122,7 +124,7 @@ class QLAgent:
                 next_state = next_state[:,0]
                 next_state = ut.state_formatter(next_state)
                 next_state = self._discretize(next_state, info["max_price"], info["min_price"])
-                self.update(state, action, reward, terminated, next_state)
+                td_error = self.update(state, action, reward, terminated, next_state)
                 done = terminated or truncated
                 state = next_state
                 if self.render_mode == 'step':
@@ -150,7 +152,7 @@ class QLAgent:
             wallet_value = info['wallet_value']
             roi = info['roi']
 
-            print(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Epsilon: {self.epsilon:.4f}")
+            tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Error: {td_error:.4f} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
             self._metrics_display.plot_metrics(**per_step_metrics)

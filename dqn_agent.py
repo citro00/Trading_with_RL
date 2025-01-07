@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque
+
+from tqdm import tqdm
 from plots import MetricPlots
 import utils as ut
 from gym_anytrading.envs import TradingEnv
@@ -201,7 +203,7 @@ class DQNAgent:
         }
 
         print(f"Inizio addestramento per {episodes} episodi.")
-        for episode in range(1, episodes + 1):
+        for episode in tqdm(range(1, episodes + 1), desc="Training Progress", unit="episode"):
             state, info = env.reset(seed=episode if seed else None)
             for metric in per_step_metrics.keys():
                 per_step_metrics[metric] = []
@@ -250,7 +252,7 @@ class DQNAgent:
             wallet_value = info['wallet_value']
             roi = info['roi']
 
-            print(f"Episode {episode}/{episodes} # Dataset: {env._current_asset} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Loss: {loss} # Epsilon: {self.epsilon:.4f}")
+            tqdm(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
             self._metrics_display.plot_metrics(**per_step_metrics)
