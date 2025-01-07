@@ -373,7 +373,7 @@ class CustomStocksEnv(TradingEnv):
         Calcola il profitto totale accumulato fino al momento corrente.
         :return: Profitto totale.
         """
-        return self._get_wallet_value() - self.initial_balance if (self._terminate or self._truncated) else 0
+        return self._get_wallet_value() - self.initial_balance
     
     def _get_roi(self):
         """

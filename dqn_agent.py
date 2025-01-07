@@ -9,7 +9,7 @@ from collections import deque
 from plots import MetricPlots
 import utils as ut
 from gym_anytrading.envs import TradingEnv
-
+import pandas as pd
 
 
 
@@ -269,24 +269,28 @@ class DQNAgent:
         state, info = env.reset()
         state = ut.state_formatter(state)
         done = False
-        total_profit = 0
-        total_reward = 0
-
+        
         while not done:
             action = self.act(state) 
             next_state, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             next_state = ut.state_formatter(next_state)
             state = next_state
-            total_reward += reward
 
             if self.render_mode == 'step':
                 env.render()
 
-        print(f"Total profit: {info['total_profit']}\nTotal reward: {total_reward}")
-        print(f"Valutazione - Total Profit: {info['total_profit']:.2f}")
+
+        history = pd.DataFrame(env.history)
+        history.to_csv("csv/history.csv", index=False)  # Salva
+        
+        print("___ Valutazione ___")
+        print(f"Total Profit: {info['total_profit']:.2f} - Mean: {np.mean(history['total_profit']):.2f} - Std: {np.std(history['total_profit']):.2f}")
+        print(f"Wallet value: {info['wallet_value']:.2f} - Mean: {np.mean(history['wallet_value']):.2f} - Std: {np.std(history['wallet_value']):.2f}")
+        print(f"Total Reward: {info['total_reward']:.2f} - Mean: {np.mean(history['total_reward']):.2f} - Std: {np.std(history['total_reward']):.2f}")
+        print(f"ROI: {info['roi']:.2f}% - Mean: {np.mean(history['roi']):.2f}% - Std: {np.std(history['roi']):.2f}%")
 
         if self.render_mode == 'episode':
             env.render_all()
         
-        return info['total_profit'], total_reward, info
+        return info['total_profit'], info['total_reward'], info
