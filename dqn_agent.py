@@ -78,7 +78,7 @@ class DQNAgent:
         self.gamma = 0.95
         self.epsilon = 1.0  
         self.epsilon_min = 0.01  
-        self.epsilon_decay = 0.8
+        self.epsilon_decay = 0.88
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
@@ -273,7 +273,8 @@ class DQNAgent:
         done = False
         
         while not done:
-            action = self.act(state) 
+            action = self.act(state)
+            print(f"Action: {action}")
             next_state, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             next_state = ut.state_formatter(next_state)

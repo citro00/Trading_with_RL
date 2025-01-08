@@ -50,7 +50,7 @@ class CustomStocksEnv(TradingEnv):
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf,
             #shape=(self.window_size, self.signal_features.shape[1]),
-            shape=(1, self.window_size*self.signal_features.shape[1]+2),
+            shape=(1, self.window_size*self.signal_features.shape[1]+1),
             dtype=np.float32
         )
 
@@ -89,19 +89,22 @@ class CustomStocksEnv(TradingEnv):
         :param action: Azione eseguita (Buy, Sell, Hold).
         :return: Ricompensa associata all'azione.
         """
+
+        if not self._done_deal:
+            return -0.5
             
-        '''if action == Action.Sell.value and self._step_profit > 0 and self._done_deal:
+        if action == Action.Sell.value and self._step_profit > 0:
             sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) + 0.2
             return sell_reward
-        elif action == Action.Sell.value and self._step_profit <= 0 and self._done_deal:
+        elif action == Action.Sell.value and self._step_profit <= 0:
             sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) - 0.5
             return sell_reward
 
-        if action == Action.Buy.value and self._done_deal and self.prices[self._current_tick] < self.prices[self._last_trade_tick]:
+        if action == Action.Buy.value and self.prices[self._current_tick] < self.prices[self._last_trade_tick]:
             buy_reward = np.log(self.prices[self._last_trade_tick] / self.prices[self._current_tick]) + 0.2
             return buy_reward
         
-        elif action == Action.Buy.value and self._done_deal and self.prices[self._current_tick] >= self.prices[self._last_trade_tick]:
+        elif action == Action.Buy.value and self.prices[self._current_tick] >= self.prices[self._last_trade_tick]:
             buy_reward = np.log(self.prices[self._last_trade_tick] / self.prices[self._current_tick]) - 0.5
             return buy_reward
 
@@ -113,16 +116,36 @@ class CustomStocksEnv(TradingEnv):
             hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick])  - 0.5
             return hold_reward
 
-        if not self._done_deal:
-            return -0.5
-
-        return 0'''
-        if self._get_total_profit() > 0:
-            return np.log(self._get_wallet_value() / self.initial_balance) + 0.5
-        elif self._get_total_profit() <= 0:
-            return np.log(self._get_wallet_value() / self.initial_balance) - 0.3
-        
+        print(f"Action: {action}")
         return 0
+        
+        '''if not self._done_deal:
+            return -0.5
+        
+        if self._get_total_profit() > 0:
+            if action == Action.Sell.value and self._step_profit > 0:
+                sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) + 0.2
+                return sell_reward
+            elif action == Action.Buy.value and self.prices[self._current_tick] < self.prices[self._last_trade_tick]:
+                buy_reward = np.log(self.prices[self._last_trade_tick] / self.prices[self._current_tick]) + 0.2
+                return buy_reward
+            elif action == Action.Hold.value and self.prices[self._current_tick] > self.prices[self._last_trade_tick] and self._total_profit > 0:
+                hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick])  + 0.2
+                return hold_reward
+            return 0.2
+        elif self._get_total_profit() <= 0:
+            if action == Action.Sell.value and self._step_profit <= 0:
+                sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) - 0.5
+                return sell_reward
+            elif action == Action.Buy.value and self.prices[self._current_tick] >= self.prices[self._last_trade_tick]:
+                buy_reward = np.log(self.prices[self._last_trade_tick] / self.prices[self._current_tick]) - 0.5
+                return buy_reward
+            elif action == Action.Hold.value and self.prices[self._current_tick] <= self.prices[self._last_trade_tick]:
+                hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick])  - 0.5
+                return hold_reward
+            return -0.2
+        else:
+            return -1'''
     
             
     def _update_profit(self, action) :
@@ -336,7 +359,7 @@ class CustomStocksEnv(TradingEnv):
             padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
             obs = np.vstack((padding, obs))
         obs = obs.flatten()
-        obs = np.concatenate((obs, [self._get_total_profit()], [self._get_wallet_value()]), axis=0)
+        obs = np.concatenate((obs, [self._get_total_profit()/self.initial_balance]), axis=0)
 
         return obs
     
