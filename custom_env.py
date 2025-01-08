@@ -92,18 +92,26 @@ class CustomStocksEnv(TradingEnv):
 
         if not self._done_deal:
             return -0.5
+        
+        if action == Action.Hold.value:
+            return (self._step_profit / self.initial_balance) / 2
+        elif action == Action.Buy.value:
+            return (self._step_profit / self.initial_balance) / 3
+        else:
+            return (self._step_profit / self.initial_balance)
             
-        if action == Action.Sell.value and self._step_profit > 0:
-            sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) + 0.2
+        '''if action == Action.Sell.value and self._get_total_profit() > 0:
+            #sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) + 0.2
+            sell_reward = np.log(self._actual_budget / self.initial_balance) + 0.2
             return sell_reward
-        elif action == Action.Sell.value and self._step_profit <= 0:
-            sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) - 0.5
+        elif action == Action.Sell.value and self._get_total_profit() <= 0:
+            #sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) - 0.5
+            sell_reward = np.log(self._actual_budget / self.initial_balance) - 0.2
             return sell_reward
 
         if action == Action.Buy.value and self.prices[self._current_tick] < self.prices[self._last_trade_tick]:
             buy_reward = np.log(self.prices[self._last_trade_tick] / self.prices[self._current_tick]) + 0.2
             return buy_reward
-        
         elif action == Action.Buy.value and self.prices[self._current_tick] >= self.prices[self._last_trade_tick]:
             buy_reward = np.log(self.prices[self._last_trade_tick] / self.prices[self._current_tick]) - 0.5
             return buy_reward
@@ -111,18 +119,14 @@ class CustomStocksEnv(TradingEnv):
         if action == Action.Hold.value and self.prices[self._current_tick] > self.prices[self._last_trade_tick]:
             hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick])  + 0.2
             return hold_reward
-        
         elif action == Action.Hold.value and self.prices[self._current_tick] <= self.prices[self._last_trade_tick]:
             hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick])  - 0.5
             return hold_reward
 
-        print(f"Action: {action}")
-        return 0
-        
-        '''if not self._done_deal:
-            return -0.5
-        
-        if self._get_total_profit() > 0:
+        #print(f"Action: {action}")
+        return 0'''
+                
+        '''if self._get_total_profit() > 0:
             if action == Action.Sell.value and self._step_profit > 0:
                 sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) + 0.2
                 return sell_reward
@@ -132,7 +136,7 @@ class CustomStocksEnv(TradingEnv):
             elif action == Action.Hold.value and self.prices[self._current_tick] > self.prices[self._last_trade_tick] and self._total_profit > 0:
                 hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick])  + 0.2
                 return hold_reward
-            return 0.2
+            return np.log(self._get_wallet_value() / self.initial_balance) * 0.2
         elif self._get_total_profit() <= 0:
             if action == Action.Sell.value and self._step_profit <= 0:
                 sell_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick]) - 0.5
@@ -143,20 +147,25 @@ class CustomStocksEnv(TradingEnv):
             elif action == Action.Hold.value and self.prices[self._current_tick] <= self.prices[self._last_trade_tick]:
                 hold_reward = np.log(self.prices[self._current_tick] / self.prices[self._last_trade_tick])  - 0.5
                 return hold_reward
-            return -0.2
+            return np.log(self._get_wallet_value() / self.initial_balance) * 0.2
         else:
             return -1'''
+        
     
             
-    def _update_profit(self, action) :
+    def _update_profit(self, action, assets) :
         
         """
         Aggiorna il profitto del passo corrente in base all'azione eseguita.
         :param action: Azione eseguita (Buy, Sell, Hold).
         """
+
+        self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])*assets
     
-        if action == Action.Sell.value:
-          self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])
+        '''if action == Action.Sell.value:
+            self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])*assets
+        elif action == Action.Buy.value:
+            self._step_profit = - (self.prices[self._current_tick])*assets'''
           
 
     def step(self, action):
@@ -170,7 +179,7 @@ class CustomStocksEnv(TradingEnv):
 
         self._terminate = False
         self._current_tick += 1
-        self._step_profit = 0.
+        #self._step_profit = 0.
         self._step_reward = 0.
         self._done_deal = False
 
@@ -182,6 +191,7 @@ class CustomStocksEnv(TradingEnv):
             self._truncated = True
 
         self._last_action = None
+        assets = self._assets_num
         if action == Action.Buy.value and self._actual_budget >= self.prices[self._current_tick]:
             # Se l'azione selezionata è buy e il budget disponibile è superiore al prezzo corrente dell'asset: 
             self.buy()
@@ -194,7 +204,7 @@ class CustomStocksEnv(TradingEnv):
             self._done_deal = True
             self._last_action = (self._current_tick, Action.Hold)
 
-        self._update_profit(action)
+        self._update_profit(action, assets)
         self._step_reward = self._calculate_reward(action)
         if (action == Action.Sell.value or action == Action.Buy.value) and self._done_deal:
             self._last_trade_tick = self._current_tick

@@ -78,7 +78,7 @@ class DQNAgent:
         self.gamma = 0.95
         self.epsilon = 1.0  
         self.epsilon_min = 0.01  
-        self.epsilon_decay = 0.88
+        self.epsilon_decay = 0.9
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
