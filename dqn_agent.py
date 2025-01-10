@@ -9,6 +9,7 @@ from collections import deque
 
 from tqdm import tqdm
 from plots import MetricPlots
+import matplotlib.pyplot as plt
 import utils as ut
 from gym_anytrading.envs import TradingEnv
 import pandas as pd
@@ -78,7 +79,7 @@ class DQNAgent:
         self.gamma = 0.95
         self.epsilon = 1.0  
         self.epsilon_min = 0.01  
-        self.epsilon_decay = 0.991
+        self.epsilon_decay = 0.89
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
@@ -251,9 +252,9 @@ class DQNAgent:
             total_profit = info['total_profit']
             wallet_value = info['wallet_value']
             roi = info['roi']
-
+            
             tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
-
+            plt.show(block=True)
         if self.render_mode == 'off':
             self._metrics_display.plot_metrics(**per_step_metrics)
             self._metrics_display.plot_metrics(**per_episode_metrics, show=True)

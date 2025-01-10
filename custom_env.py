@@ -93,14 +93,11 @@ class CustomStocksEnv(TradingEnv):
         :param action: Azione eseguita (Buy, Sell, Hold).
         :return: Ricompensa associata all'azione.
         """
-        if not self._done_deal:
-            return -0.5
         
-        drawdown = max(0, ((self.initial_balance/2)-self._delta_p))
-        if action == Action.Buy.value:
-            transaction_cost = (0.05 * self.prices[self._current_tick])*self._assets_num
-        elif action == Action.Sell.value:
-            transaction_cost = (0.05 * self.prices[self._current_tick])*self._last_assets_num
+        '''drawdown = max(0, (self._get_wallet_value()/self.initial_balance)-self._delta_p)
+        
+        if not action==Action.Hold.value:
+            transaction_cost = 0.05*self._delta_p
         else:
             transaction_cost = 0
 
@@ -111,24 +108,44 @@ class CustomStocksEnv(TradingEnv):
                 self._transaction_number += 1
 
         inactivity_steps = self._current_tick - self._last_trade_tick
-        h_action = max(0,0.5*(self._transaction_number-15))
-        h_inactivity = max(0,0.5*(inactivity_steps-5))
+        h_action = max(0,0.3*(self._transaction_number-15))
+        h_inactivity = max(0,0.7*(inactivity_steps-5))
         h = h_action + h_inactivity
-        
-        """print(f"Action: {action} # Done_deal: {self._done_deal}")
+
+        if self._delta_p > 1:
+            reward = self._delta_p - transaction_cost - h
+        elif self._delta_p < 1:
+            reward = self._delta_p - drawdown - transaction_cost - h
+        else:
+            reward = - h '''
+        print(f"Action reward: {action}")
+        if not self._done_deal:
+            return -0.2
+        delta_p = self._delta_p * 10
+        transaction_cost = 0.1*delta_p
+        '''if not action == Action.Hold.value:
+            return (np.log(self._delta_p)*2)-transaction_cost
+        else:
+            return -transaction_cost'''
+        if action == Action.Hold.value:
+            return -transaction_cost
+        else:
+            return 0
+
+
+        """print(f"Step: {self._current_tick}")
+        print(f"Action: {action} # Done_deal: {self._done_deal}")
         print(f"Delta_p: {self._delta_p}")
         print(f"Transaction cost: {transaction_cost}")
         print(f"H: {h}")
         print(f"DrawDown: {drawdown}")
+        print(f"Prezzo corrente: {self.prices[self._current_tick]}")
+        print(f"Prezzo step precedente: {self.prices[self._current_tick-1]}")
+        print(f"Numero di asset corrente: {self._assets_num}")
+        print(f"Numero di asset step precedente: {self._last_assets_num}")
+        print("###############################\n")
         time.sleep(0.5)"""
-
-        if self._delta_p > 0:
-            return self._delta_p - transaction_cost - h
-        elif self._delta_p < 0:
-            return self._delta_p - drawdown - transaction_cost - h
-        else:
-            return - h 
-
+        return reward
 
             
     def _update_profit(self, action) :
@@ -169,7 +186,8 @@ class CustomStocksEnv(TradingEnv):
 
         self._last_action = None
         self._last_assets_num = self._assets_num
-        last_p = (self._actual_budget + (self.prices[self._current_tick-1])*self._assets_num)
+        last_p = (self._actual_budget + (self.prices[self._current_tick-1])*self._last_assets_num)
+        #print(f"Last_p: {last_p}")
         if action == Action.Buy.value and self._actual_budget >= self.prices[self._current_tick]:
             # Se l'azione selezionata è buy e il budget disponibile è superiore al prezzo corrente dell'asset: 
             self.buy()
@@ -180,9 +198,12 @@ class CustomStocksEnv(TradingEnv):
             
         elif action == Action.Hold.value:
             self.hold()
-
+        print(f"Action step: {action}")
+        print(f"Current tick: {self._current_tick}")
+        print("####################")
         actual_p = (self._actual_budget + (self.prices[self._current_tick])*self._assets_num)
-        self._delta_p = actual_p - last_p
+        #print(f"Actual_p: {actual_p}")
+        self._delta_p = actual_p / last_p
         self._update_profit(action)
         self._step_reward = self._calculate_reward(action)
         if (action == Action.Sell.value or action == Action.Buy.value) and self._done_deal:
