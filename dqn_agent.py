@@ -55,7 +55,7 @@ class DQNAgent:
     """
 
 
-    def __init__(self, state_size, action_size, batch_size, device, initial_balance=1000, render_mode: Literal['step', 'episode', 'off']='off'):
+    def __init__(self, state_size, action_size, batch_size, device, epsilon_decay, initial_balance=1000, render_mode: Literal['step', 'episode', 'off']='off'):
         
         """
         Inizializza l'agente DQN con parametri come dimensione dello stato, azioni, memoria di replay, 
@@ -79,7 +79,7 @@ class DQNAgent:
         self.gamma = 0.95
         self.epsilon = 1.0  
         self.epsilon_min = 0.01  
-        self.epsilon_decay = 0.89
+        self.epsilon_decay = epsilon_decay
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
 
         self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
@@ -254,7 +254,7 @@ class DQNAgent:
             roi = info['roi']
             
             tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
-            plt.show(block=True)
+            #plt.show(block=True)
         if self.render_mode == 'off':
             self._metrics_display.plot_metrics(**per_step_metrics)
             self._metrics_display.plot_metrics(**per_episode_metrics, show=True)

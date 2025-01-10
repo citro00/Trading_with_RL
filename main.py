@@ -30,7 +30,7 @@ def setup_environment(symbols, start_date, end_date, window_size, initial_balanc
     return env
 
 
-def select_agent(model, state_size, action_size, batch_size, device, initial_balance):
+def select_agent(model, state_size, action_size, batch_size, device, initial_balance, epsilon_decay):
     """
     Restituisce l'agente in base al modello scelto.
     """
@@ -40,7 +40,8 @@ def select_agent(model, state_size, action_size, batch_size, device, initial_bal
             action_size=action_size,
             batch_size=batch_size,
             device=device,
-            initial_balance=initial_balance
+            initial_balance=initial_balance,
+            epsilon_decay=epsilon_decay
         )
     elif model == "QL":
         agent = QLAgent(
@@ -57,6 +58,7 @@ def main():
     argparser.add_argument("--model", type=str, choices=["DQN", "QL"], default="DQN", help="Modello da utilizzare (DQN/QL)")
     argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
     argparser.add_argument("--initial-balance", type=int, default=10000, help="Saldo iniziale")
+    argparser.add_argument("--epsilon-decay", type=float, default=0.89, help="Fattore di decadimento del parametro epsylon")
 
     args = argparser.parse_args()
 
@@ -65,7 +67,9 @@ def main():
     model = args.model
     episodes = args.episodes
     initial_balance = args.initial_balance
+    epsilon_decay = args.epsilon_decay
     symbols = ["AAPL", "NVDA", "TSLA", "RIOT", "UBER", "AMZN", "UAA", "INTC", "F", "GME", "QUBT"]
+    #symbols = ["AAPL"]
     window_size = 30
     
     print("Inizializzazione dell'ambiente di training...")
@@ -108,7 +112,8 @@ def main():
         action_size=action_size,
         batch_size=batch_size,
         device=device,
-        initial_balance=initial_balance
+        initial_balance=initial_balance,
+        epsilon_decay = epsilon_decay
     )
     
     # Settiamo la render mode: "episode" durante il training
