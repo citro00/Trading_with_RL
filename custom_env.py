@@ -90,7 +90,7 @@ class CustomStocksEnv(TradingEnv):
 
         return prices, signal_features
 
-    def _calculate_reward(self, action):
+    #def _calculate_reward(self, action):
         
         """
         Calcola la ricompensa in base all'azione eseguita, considerando il profitto o la perdita e lo stato 
@@ -99,7 +99,7 @@ class CustomStocksEnv(TradingEnv):
         :return: Ricompensa associata all'azione.
         """
 
-        beta1=0.02  # Peso penalità per trading eccessivo
+        """beta1=0.02  # Peso penalità per trading eccessivo
         beta2=0.01  # Peso penalità per inattività
         alpha=0.3 # Peso penalità per drawdown
         lambda_T=0.005  # Peso riduzione costi di transazione
@@ -141,24 +141,9 @@ class CustomStocksEnv(TradingEnv):
             reward = self._delta_p_normalized - transaction_cost_norm - self._drawdown - self._h
         else:
             reward = - 0.5
+        return reward"""
 
-        #if reward>10000:
-            #print(f"Step: {self._current_tick}")
-            #print(f"Action: {action} # Done_deal: {self._done_deal}")
-            #print(f"Delta_p: {delta_p}")
-            #print(f"Transaction cost: {transaction_cost}")
-            #print(f"H: {h}")
-            #print(f"DrawDown: {drawdown}")
-            #print(f"Penalità totale: {penalità_totale}")
-            #print(f"Prezzo corrente: {self.prices[self._current_tick]}")
-            #print(f"Prezzo step precedente: {self.prices[self._current_tick-1]}")
-            #print(f"Numero di asset corrente: {self._assets_num}")
-            #print(f"Numero di asset step precedente: {self._last_assets_num}")
-            #print("###############################\n")
-            #time.sleep(0.5)
-        return reward
-
-    """def _calculate_reward(self, action):
+    def _calculate_reward(self, action):
         # QUESTA FUNZIONA. NON TOCCARE !!!!!
         beta1=2.5  # Peso penalità per trading eccessivo
         beta2=1.2  # Peso penalità per inattività
@@ -181,7 +166,7 @@ class CustomStocksEnv(TradingEnv):
         else:
             reward = - 0.5
         
-        return reward"""
+        return reward
             
     def _update_profit(self, action) :
         
@@ -418,10 +403,15 @@ class CustomStocksEnv(TradingEnv):
         if len(obs) < self.window_size:
             padding = np.zeros((self.window_size - len(obs), self.signal_features.shape[1]))
             obs = np.vstack((padding, obs))
-        obs = obs.flatten()
-        obs = np.concatenate((obs, [self._get_total_profit()/self.initial_balance]), axis=0)
+        
+        obs_arr = []
+        for col in range(0,obs.shape[1]):
+            obs_arr.append(obs[:,col])
 
-        return obs
+        #obs = obs.flatten()
+        #obs = np.concatenate((obs_arr, [self._get_total_profit()/self.initial_balance]), axis=0)
+        obs_arr.append(self._get_total_profit()/self.initial_balance)
+        return obs_arr
     
     def _get_info(self):
         """

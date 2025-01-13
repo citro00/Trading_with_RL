@@ -211,7 +211,10 @@ class DQNAgent:
 
             if self.render_mode == 'step':
                 env.render()
-            state = ut.state_formatter(state)
+            prices = state[:-1]
+            profit = state[-1]
+            state = ut.state_formatter(prices)
+            state = np.concatenate((state, [profit]), axis=0)
             done = False
          
             while not done:
@@ -219,7 +222,10 @@ class DQNAgent:
                 action = self.act(state) 
                 next_state, reward, terminated, truncated, info = env.step(action)
                 done = terminated or truncated
-                next_state = ut.state_formatter(next_state)
+                next_prices = next_state[:-1]
+                next_profit = next_state[-1]
+                next_state = ut.state_formatter(next_prices)
+                next_state = np.concatenate((next_state, [next_profit]), axis=0)
                 self.remember(state, action, reward, next_state, done)
                 state = next_state
                 loss = self.replay()
@@ -270,7 +276,10 @@ class DQNAgent:
 
         self.epsilon = 0  # Disattiva esplorazione durante la valutazione
         state, info = env.reset()
-        state = ut.state_formatter(state)
+        prices = state[:-1]
+        profit = state[-1]
+        state = ut.state_formatter(prices)
+        state = np.concatenate((state, [profit]), axis=0)
         done = False
         
         while not done:
@@ -278,7 +287,10 @@ class DQNAgent:
             print(f"Action: {action}")
             next_state, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
-            next_state = ut.state_formatter(next_state)
+            next_prices = next_state[:-1]
+            next_profit = next_state[-1]
+            next_state = ut.state_formatter(next_prices)
+            next_state = np.concatenate((next_state, [next_profit]), axis=0)
             state = next_state
 
             if self.render_mode == 'step':

@@ -9,6 +9,7 @@ from tqdm import tqdm
 import utils as ut
 from plots import MetricPlots
 import pandas as pd
+import time
 class QLAgent:
     
     """
@@ -93,7 +94,7 @@ class QLAgent:
 
         per_step_metrics = {
             'step_reward': [],
-            'step_profit': [],
+            'delta_p': [],
         }
         
         per_episode_metrics = {
@@ -106,8 +107,10 @@ class QLAgent:
         print(f"Inizio addestramento per {episodes} episodi.")
         for episode in tqdm(range(1, episodes + 1), desc="Training Progress", unit="episode"):
             state, info = env.reset(seed=episode if seed else None)
-            state = state[:,0]
-            state = ut.state_formatter(state)
+            prices = state[0]
+            profit = state[-1]
+            state = ut.state_formatter(prices)
+            state = np.concatenate((state, [profit]), axis=0)
             state = self._discretize(state, info["max_price"], info["min_price"])
 
             for metric in per_step_metrics.keys():
@@ -121,8 +124,10 @@ class QLAgent:
             while not done:
                 action = self.act(state)
                 next_state, reward, terminated, truncated, info = env.step(action)
-                next_state = next_state[:,0]
-                next_state = ut.state_formatter(next_state)
+                next_prices = next_state[0]
+                next_profit = next_state[-1]
+                next_state = ut.state_formatter(next_prices)
+                next_state = np.concatenate((next_state, [next_profit]), axis=0)
                 next_state = self._discretize(next_state, info["max_price"], info["min_price"])
                 td_error = self.update(state, action, reward, terminated, next_state)
                 done = terminated or truncated
@@ -172,17 +177,21 @@ class QLAgent:
 
         self.epsilon = 0
         state, info = env.reset()
-        state = state[:,0]
-
-        state = ut.state_formatter(state)
+        prices = state[0]
+        profit = state[-1]
+        state = ut.state_formatter(prices)
+        state = np.concatenate((state, [profit]), axis=0)
         state = self._discretize(state, info["max_price"], info["min_price"])
         done = False
 
         while not done:
             action = self.act(state)
+            print(f"Azione: {action}")
             next_state, reward, terminated, truncated, info = env.step(action)
-            next_state = next_state[:,0]
-            next_state = ut.state_formatter(next_state)
+            next_prices = next_state[0]
+            next_profit = next_state[-1]
+            next_state = ut.state_formatter(next_prices)
+            next_state = np.concatenate((next_state, [next_profit]), axis=0)
             next_state = self._discretize(next_state, info["max_price"], info["min_price"])
 
             done = terminated or truncated
@@ -217,14 +226,17 @@ class QLAgent:
         :return: Stato discretizzato.
         """
 
-        k = 10
+        k = 5
         bins = np.linspace(min_price, max_price, k + 1)
         # print(f"Bins: {bins}")
         # print(f"State: {state[:10]}")
-        discretized = np.digitize(state, bins, right=False)
-
+        prices_discretized = np.digitize(state[:-1], bins, right=False)
+        total_profit = state[-1]
+        modulo_profit = np.mod(total_profit, k)
+        if modulo_profit < 1:
+            modulo_profit = 0 
         # print("\nDiscretizzazione in 12 bin (prime 10 posizioni):\n", discretized[:10])
-        return tuple(discretized.astype(np.int64))
+        return tuple(prices_discretized.astype(np.int64))+(modulo_profit,)
 
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
         
@@ -234,31 +246,6 @@ class QLAgent:
         """
         
         self.render_mode = render_mode
-
-    def _set_plot_labels(self):
-        self.plots['total_profit'].set_title("Total Profit")
-        self.plots['total_profit'].set_xlabel("Episode")
-        self.plots['total_profit'].set_ylabel("Profit")
-        
-        self.plots['step_profit'].set_title("Step Profit")
-        self.plots['step_profit'].set_xlabel("Timesteps")
-        self.plots['step_profit'].set_ylabel("Profit")
-
-        self.plots['total_reward'].set_title("Total Reward")
-        self.plots['total_reward'].set_xlabel("Episode")
-        self.plots['total_reward'].set_ylabel("Reward")
-
-        self.plots['step_reward'].set_title("Step Reward")
-        self.plots['step_reward'].set_xlabel("Timesteps")
-        self.plots['step_reward'].set_ylabel("Reward")
-
-        self.plots['loss'].set_title("Loss")
-        self.plots['loss'].set_xlabel("Episode")
-        self.plots['loss'].set_ylabel("Loss")
-
-        self.plots['wallet_value'].set_title("Wallet Value")
-        self.plots['wallet_value'].set_xlabel("Episode")
-        self.plots['wallet_value'].set_ylabel("Value")
 
     def init_plots(self):
         fig = plt.figure(1000, figsize=(15, 5),  layout="constrained")
