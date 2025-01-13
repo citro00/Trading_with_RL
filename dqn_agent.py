@@ -193,7 +193,7 @@ class DQNAgent:
 
         per_step_metrics = {
             'step_reward': [],
-            'step_profit': [],
+            'delta_p': [],
         }
         
         per_episode_metrics = {

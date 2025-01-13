@@ -6,7 +6,7 @@ class MetricPlots:
         self.plots = fig.subplot_mosaic(
             [
                 ["total_profit", "total_reward", "roi"],
-                ["step_profit", "step_reward", "wallet_value"]
+                ["delta_p", "step_reward", "wallet_value"]
             ]
         )
         
@@ -18,9 +18,9 @@ class MetricPlots:
         self.plots['total_profit'].set_xlabel("Episode")
         self.plots['total_profit'].set_ylabel("Profit")
         
-        self.plots['step_profit'].set_title("Step Profit")
-        self.plots['step_profit'].set_xlabel("Timesteps")
-        self.plots['step_profit'].set_ylabel("Profit")
+        self.plots['delta_p'].set_title("delta_p")
+        self.plots['delta_p'].set_xlabel("Timesteps")
+        self.plots['delta_p'].set_ylabel("Profit")
 
         self.plots['total_reward'].set_title("Total Reward")
         self.plots['total_reward'].set_xlabel("Episode")

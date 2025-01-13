@@ -46,8 +46,12 @@ class CustomStocksEnv(TradingEnv):
         self._current_asset = random.choice(list(self.df_dict.keys()))
         self._transaction_number = None
         self._delta_p = None
+        self._delta_p_normalized = None
+        self._drawdown = None
+        self._h = None
         self._last_assets_num = None
         self._max_wallet_value = None
+        self._min_wallet_value = None
         
         super().__init__(df=self.df_dict[self._current_asset], window_size=window_size)
         self.action_space = spaces.Discrete(len(Action))
@@ -94,63 +98,49 @@ class CustomStocksEnv(TradingEnv):
         :param action: Azione eseguita (Buy, Sell, Hold).
         :return: Ricompensa associata all'azione.
         """
-        
-        beta1=2.5  # Peso penalità per trading eccessivo
-        beta2=1.2  # Peso penalità per inattività
-        alpha=1.4 # Peso penalità per drawdown
-        lambda_T=1.2  # Peso riduzione costi di transazione
-        lambda_D=1.5  # Peso riduzione drawdown
-        lambda_H=2  # Peso riduzione penalità comportamentali
-        limite_penalità=100  # Soglia massima per penalità complessiva
-        min_price = min(self.prices)
-        max_price = max(self.prices)
-        
-        # Riduzione della scala del delta_p
-        delta_p_norm = self._delta_p/(max_price-min_price)
+
+        beta1=0.02  # Peso penalità per trading eccessivo
+        beta2=0.01  # Peso penalità per inattività
+        alpha=0.3 # Peso penalità per drawdown
+        lambda_T=0.005  # Peso riduzione costi di transazione
+        lambda_D=0.5  # Peso riduzione drawdown
+        lambda_H=0.03  # Peso riduzione penalità comportamentali
+        #min_price = min(self.prices)
+        #max_price = max(self.prices)
+
+        self._delta_p_normalized = self._delta_p/(self._max_wallet_value-self._min_wallet_value)
 
         # Calcolo il transaction cost rispetto al prezzo corrente dell'azione
         transaction_cost = abs(0.05*self.prices[self._current_tick])
+        transaction_cost_norm = transaction_cost * lambda_T
 
-        # Controlliamo se l'azione scelta è stata effettuata correttamente
-        '''invalid_operation = 0
-        if not self._done_deal:
-            invalid_operation = (lambda_T*transaction_cost)'''
-        
-        if ((self._max_wallet_value - self._get_wallet_value()) / self._max_wallet_value) > 0.2:
+
+        if ((self._max_wallet_value - self._get_wallet_value()) / self._max_wallet_value) > 0.5:
             # Se la perdita allo step attuale è più grande del 10 percento del valore massimo di drawdown setta drawdown
             drawdown = max(0, alpha*((self._max_wallet_value - self._get_wallet_value()) / self._max_wallet_value))
         else:
             drawdown = 0
 
         # Setto il parametro per troppo trading
-        h_trading_eccessivo = max(0, beta1*(self._transaction_number-30))
+        h_trading_eccessivo = max(0, beta1*(self._transaction_number))
 
         # Calcolo step inattivi
         step_inattivo = self._current_tick - self._last_trade_tick
         
         # Setto parametro troppo inattivo
-        h_inattività = max(0, beta2 *(step_inattivo-20))
+        h_inattività = max(0, beta2 *(step_inattivo))
         
         # Calcolo penalità comportamentale 
         h = h_trading_eccessivo + h_inattività
 
-        penalità_totale = 0
-        # Definisco epsilon per evitare divisioni per 0
-        epsilon = 10^(-6)
-
         # Calcolo i parametri di penalizzazione normalizzati
-        transaction_cost_norm = transaction_cost/(delta_p_norm+epsilon)
-        drawdown_norm = drawdown/(delta_p_norm+epsilon)
-        h_norm = h/(delta_p_norm+epsilon)
-        limite_penalità_norm = limite_penalità/(delta_p_norm+epsilon) 
+        self._drawdown = drawdown * lambda_D
+        self._h = h * lambda_H
         
         if self._done_deal:
-            # Se l'azione è stata fatta correttamente calcolo la penalità e la reward
-            penalita_totale = min(100,lambda_T * transaction_cost_norm + lambda_D * drawdown_norm + lambda_H * h_norm)
-            reward = delta_p_norm - (penalita_totale*1.5)
+            reward = self._delta_p_normalized - transaction_cost_norm - self._drawdown - self._h
         else:
-            # Se l'azione non è stata effettuata correttamente restituisco una penalità pari a - delta_p
-            reward = - transaction_cost_norm
+            reward = - 0.5
 
         #if reward>10000:
             #print(f"Step: {self._current_tick}")
@@ -168,6 +158,30 @@ class CustomStocksEnv(TradingEnv):
             #time.sleep(0.5)
         return reward
 
+    """def _calculate_reward(self, action):
+        # QUESTA FUNZIONA. NON TOCCARE !!!!!
+        beta1=2.5  # Peso penalità per trading eccessivo
+        beta2=1.2  # Peso penalità per inattività
+        alpha=1.4 # Peso penalità per drawdown
+        lambda_T=0.005  # Peso riduzione costi di transazione
+        lambda_D=1.5  # Peso riduzione drawdown
+        lambda_H=2  # Peso riduzione penalità comportamentali
+        limite_penalità=100  # Soglia massima per penalità complessiva
+        #min_price = min(self.prices)
+        #max_price = max(self.prices)
+
+        self._delta_p_normalized = self._delta_p/(self._max_wallet_value-self._min_wallet_value)
+
+        # Calcolo il transaction cost rispetto al prezzo corrente dell'azione
+        transaction_cost = abs(0.05*self.prices[self._current_tick])
+        transaction_cost_norm = transaction_cost * lambda_T
+
+        if self._done_deal:
+            reward = self._delta_p_normalized - transaction_cost_norm
+        else:
+            reward = - 0.5
+        
+        return reward"""
             
     def _update_profit(self, action) :
         
@@ -183,8 +197,9 @@ class CustomStocksEnv(TradingEnv):
             self._step_profit = - (self.prices[self._current_tick])*assets'''
           
 
-    def update_max_wallet_value(self, actual_wallet_value):
+    def update_max_min_wallet_value(self, actual_wallet_value):
         self._max_wallet_value = max(self._max_wallet_value, actual_wallet_value)
+        self._min_wallet_value = min(self._min_wallet_value, actual_wallet_value)
 
         
 
@@ -212,8 +227,7 @@ class CustomStocksEnv(TradingEnv):
 
         self._last_action = None
         self._last_assets_num = self._assets_num
-        last_p = (self._actual_budget + (self.prices[self._current_tick-1])*self._last_assets_num)
-        #print(f"Last_p: {last_p}")
+        last_p = (self._actual_budget + self.prices[self._last_trade_tick]*self._last_assets_num)
         if action == Action.Buy.value and self._actual_budget >= self.prices[self._current_tick]:
             # Se l'azione selezionata è buy e il budget disponibile è superiore al prezzo corrente dell'asset: 
             self.buy()
@@ -224,12 +238,11 @@ class CustomStocksEnv(TradingEnv):
             
         elif action == Action.Hold.value:
             self.hold()
-        
-        actual_p = (self._actual_budget + (self.prices[self._current_tick])*self._assets_num)
+        actual_p = (self._actual_budget + self.prices[self._current_tick]*self._assets_num)
         #print(f"Actual_p: {actual_p}")
         self._delta_p = actual_p - last_p
         self._update_profit(action)
-        self.update_max_wallet_value(self._get_wallet_value())
+        self.update_max_min_wallet_value(self._get_wallet_value())
         self._step_reward = self._calculate_reward(action)
         if (action == Action.Sell.value or action == Action.Buy.value) and self._done_deal:
             self._last_trade_tick = self._current_tick
@@ -298,8 +311,12 @@ class CustomStocksEnv(TradingEnv):
         self._last_trade_tick = 0
         self._transaction_number = 0
         self._delta_p = 0
+        self._delta_p_normalized = 0
         self._last_assets_num = 0
         self._max_wallet_value = 0
+        self._min_wallet_value = 0
+        self._drawdown = 0
+        self._h = 0
         self._truncated = False 
         self._terminate = False
         obs, info = super().reset(seed=seed)
@@ -318,9 +335,9 @@ class CustomStocksEnv(TradingEnv):
             '''if self._current_tick != tick:
                 return # Plot only last action'''
             if action == Action.Sell:
-                plt.plot(tick, self.prices[tick], 'v', markersize=8, color='k', label='Sell Signal')
+                plt.plot(tick, self.prices[tick], 'v', markersize=8, color='r', label='Sell Signal')
             elif action == Action.Buy:
-                plt.plot(tick, self.prices[tick], '^', markersize=8, color='m', label='Buy Signal')
+                plt.plot(tick, self.prices[tick], '^', markersize=8, color='g', label='Buy Signal')
             elif action == Action.Hold and self.metadata['plot_holds']:
                 plt.plot(tick, self.prices[tick], 'o', markersize=4, color='b', label='Hold Signal')
 
@@ -358,8 +375,8 @@ class CustomStocksEnv(TradingEnv):
         hold_signals = [tick for (tick, action) in actions_history if action == Action.Hold]
 
         plt.plot(self.prices, color='k', lw=1.1, label='Price')
-        plt.plot(buy_signals, self.prices[buy_signals], '^', markersize=8, color='m', label='Buy Signal')
-        plt.plot(sell_signals, self.prices[sell_signals], 'v', markersize=8, color='k', label='Sell Signal')
+        plt.plot(buy_signals, self.prices[buy_signals], '^', markersize=8, color='g', label='Buy Signal')
+        plt.plot(sell_signals, self.prices[sell_signals], 'v', markersize=8, color='r', label='Sell Signal')
         if self.metadata['plot_holds']:
             plt.plot(hold_signals, self.prices[hold_signals], 'o', markersize=4, color='b', label='Hold Signal')
 
@@ -417,6 +434,7 @@ class CustomStocksEnv(TradingEnv):
             step_reward   = self._step_reward,
             total_reward  = self._get_total_reward(),
             step_profit   = self._step_profit,
+            delta_p = self._h,
             total_profit  = self._get_total_profit(),
             roi           = self._get_roi(),  
             wallet_value = self._get_wallet_value(),
