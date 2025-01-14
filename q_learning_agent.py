@@ -10,7 +10,13 @@ import pandas as pd
 
 
 class QLAgent:
-    
+    """
+     Agente Q-Learning per il trading.
+     Utilizza una tabella Q per apprendere la migliore politica di trading attraverso interazioni con l'ambiente.
+     Args:
+         action_size (int): Numero di azioni possibili.
+         render_mode (Literal['step', 'episode', 'off'], opzionale): Modalità di rendering. Defaults to 'off'.
+     """
     def __init__(self, action_size, render_mode: Literal['step', 'episode', 'off']='off'):
         
         self.action_size = action_size
@@ -25,7 +31,13 @@ class QLAgent:
         self._metrics_display = MetricPlots()
 
     def act(self, obs):
-        
+        """
+        Seleziona un'azione basata sulla politica epsilon-greedy.
+        Args:
+            obs (tuple): Stato corrente discretizzato.
+        Returns:
+            int: Azione selezionata.
+        """
         if np.random.random() < self.epsilon:
             return random.randrange(self.action_size)
 
@@ -33,7 +45,17 @@ class QLAgent:
             return int(np.argmax(self.q_values[obs]))
 
     def update(self, obs, action, reward, terminated, next_obs):
-    
+        """
+        Aggiorna la tabella Q utilizzando la formula di aggiornamento Q-Learning.
+        Args:
+            obs (tuple): Stato corrente.
+            action (int): Azione eseguita.
+            reward (float): Ricompensa ricevuta.
+            terminated (bool): Indicatore di fine episodio.
+            next_obs (tuple): Stato successivo.
+        Returns:
+            float: Errore temporale calcolato.
+        """
         future_q_value = (not terminated) * np.max(self.q_values[next_obs])
         temporal_difference = (reward + self.gamma * future_q_value - self.q_values[obs][action])
         self.q_values[obs][action] = (self.q_values[obs][action] + self.learning_rate * temporal_difference)
@@ -41,11 +63,19 @@ class QLAgent:
         return temporal_difference
     
     def decay_epsilon(self):
-        
+        """
+        Riduce l'epsilon per diminuire progressivamente l'esplorazione.
+        """
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
     def train_agent(self, env:TradingEnv, episodes, seed=False):
-        
+        """
+        Addestra l'agente attraverso interazioni con l'ambiente.
+        Args:
+            env (TradingEnv): Ambiente di trading.
+            episodes (int): Numero di episodi di addestramento.
+            seed (bool, opzionale): Se True, imposta un seed per la riproducibilità. Defaults to False.
+        """
         per_step_metrics = {
             'step_reward': [],
             'delta_p': [],
@@ -121,7 +151,13 @@ class QLAgent:
         print("Addestramento completato.")
 
     def evaluate_agent(self, env: TradingEnv):
-    
+        """
+        Valuta le prestazioni dell'agente sull'ambiente.
+        Args:
+            env (TradingEnv): Ambiente di trading.
+        Returns:
+            tuple: Contiene il profitto totale, la ricompensa totale e altre informazioni.
+        """
         self.epsilon = 0
         state, info = env.reset()
         prices = state[0]
@@ -163,7 +199,15 @@ class QLAgent:
         return info['total_profit'], info['total_reward'], info
 
     def _discretize(self, state, max_price, min_price):
-        
+        """
+        Discretizza lo stato continuo in uno stato discreto.
+        Args:
+            state (np.ndarray): Stato continuo.
+            max_price (float): Prezzo massimo dell'asset.
+            min_price (float): Prezzo minimo dell'asset.
+        Returns:
+            tuple: Stato discretizzato.
+        """
         k = 5
         bins = np.linspace(min_price, max_price, k + 1)
         prices_discretized = np.digitize(state[:-1], bins, right=False)
@@ -174,5 +218,10 @@ class QLAgent:
         return tuple(prices_discretized.astype(np.int64))+(modulo_profit,)
     
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
+        """
+        Imposta la modalità di rendering.
+        Args:
+            render_mode (Literal['step', 'episode', 'off']): Modalità di rendering.
+        """
         self.render_mode = render_mode
    

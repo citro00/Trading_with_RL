@@ -57,13 +57,11 @@ def main():
 
     args = argparser.parse_args()
 
-    # Parametri base
     model = args.model
     episodes = args.episodes
     initial_balance = args.initial_balance
     epsilon_decay = args.epsilon_decay
     symbols = ["AAPL", "NVDA", "TSLA", "RIOT", "UBER", "AMZN", "UAA", "INTC", "F", "GME", "QUBT"]
-    #symbols = ["AAPL"]
     window_size = 30
     
     print("Inizializzazione dell'ambiente di training...")
@@ -76,11 +74,9 @@ def main():
         model=model
     )
 
-    # Stampa info su prezzi e features
     print(f"Ambiente inizializzato. Prezzi shape: {env.prices.shape}, "
           f"Signal features shape: {env.signal_features.shape}")
-    
-    # Ottieni la dimensione dell'azione
+   
     action_size = env.action_space.n
 
     # Se DQN, prepariamo device, state_size e batch

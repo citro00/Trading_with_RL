@@ -8,12 +8,32 @@ import matplotlib.pyplot as plt
 
 
 class CustomStocksEnv(TradingEnv):
+    """
+    Ambiente personalizzato per il trading di azioni, estende la classe TradingEnv.
+    Questo ambiente consente di simulare operazioni di acquisto, vendita e mantenimento
+    di azioni basandosi su dati storici forniti. Include funzionalità di normalizzazione
+    dei dati, calcolo delle ricompense basato su diverse penalità e tracciamento dello
+    stato del portafoglio.
+    Metadati:
+        render_modes (list): Modalità di rendering supportate.
+        render_fps (int): Frame per secondo per il rendering.
+        figure_num (int): Numero della figura matplotlib utilizzata per il rendering.
+        plot_holds (bool): Indica se tracciare o meno le azioni di mantenimento.
+    """
 
     metadata = {'render_modes': ['human'], 'render_fps': 30, 'figure_num': 999, 'plot_holds': False}
 
     def __init__(self, df:dict, window_size, frame_bound, normalize=True, initial_balance=1000):
+        """
+        Inizializza l'ambiente di trading personalizzato.
+        Args:
+            df (dict): Dizionario contenente i DataFrame dei vari asset.
+            window_size (int): Dimensione della finestra temporale per le osservazioni.
+            frame_bound (tuple): Limiti iniziali e finali del frame per il trading.
+            normalize (bool, opzionale): Indica se normalizzare i dati. Defaults to True.
+            initial_balance (float, opzionale): Bilancio iniziale del portafoglio. Defaults to 1000.
+        """
         
-        # Inizializza variabili dell'ambiente
         self.frame_bound = frame_bound
         self.initial_balance = initial_balance
         self._terminate = None
@@ -46,6 +66,14 @@ class CustomStocksEnv(TradingEnv):
         )
 
     def _process_data(self):
+        """
+        Elabora i dati del DataFrame corrente, estrarre le caratteristiche necessarie
+        e applica la normalizzazione se richiesto.
+        Returns:
+            tuple: Un tuple contenente i prezzi e le caratteristiche dei segnali.
+        Raises:
+            ValueError: Se le colonne richieste non sono presenti nel DataFrame.
+        """
         
         required_columns = ['Close', 'Volume']
         if not all(col in self.df.columns for col in required_columns):
@@ -68,7 +96,17 @@ class CustomStocksEnv(TradingEnv):
 
 
     def _calculate_reward(self, action):
-        
+        """
+        Calcola la ricompensa basata sull'azione eseguita e sullo stato del portafoglio.
+        La ricompensa considera:
+        - Profitto/Più Normalizzato
+        - Costi di Transazione
+        - Drawdown se la perdita supera il 50% del valore massimo
+        - Penalità per trading eccessivo e inattività
+        Returns:
+            float: Ricompensa calcolata.
+        """
+
         beta1=0.02  #Penalità per trading eccessivo
         beta2=0.01  #Penalità per inattività
         alpha=0.3   #Penalità per drawdown
@@ -136,18 +174,33 @@ class CustomStocksEnv(TradingEnv):
     
    
     def  _update_profit(self, last_p):
-        
+        """
+        Aggiorna il profitto basato sul valore attuale del portafoglio.
+        Args:
+            last_p (float): Il valore del portafoglio nel tick precedente.
+        """
         actual_p = self._get_wallet_value()
         self._delta_p = actual_p - last_p
      
      
     def update_max_min_wallet_value(self, actual_wallet_value):
-        
+        """
+        Aggiorna i valori massimo e minimo del portafoglio.
+        Args:
+            actual_wallet_value (float): Il valore attuale del portafoglio.
+        """
         self._max_wallet_value = max(self._max_wallet_value, actual_wallet_value)
         self._min_wallet_value = min(self._min_wallet_value, actual_wallet_value)        
 
     def step(self, action):
-        
+        """
+        Esegue un passo nell'ambiente basato sull'azione data.
+        Args:
+            action (int): L'azione da eseguire (Buy, Sell, Hold).
+        Returns:
+            tuple: Contiene l'osservazione, la ricompensa, se l'episodio è terminato,
+                   se è stato troncato e informazioni aggiuntive.
+        """
         self._terminate = False
         self._current_tick += 1
         self._step_reward = 0.
@@ -198,34 +251,53 @@ class CustomStocksEnv(TradingEnv):
     
     
     def buy(self):
-        
+        """
+        Esegue l'azione di acquisto di asset.
+        Calcola la quantità di asset acquistabili con il budget attuale, aggiorna il budget e il numero
+        di asset posseduti, e registra l'azione eseguita.
+        """
         qty = self._actual_budget // self.prices[self._current_tick]
         self._actual_budget -= (self.prices[self._current_tick] * qty)
         self._assets_num += qty
-        # Salviamo il tick corrente come tick di acquisto e tick dell'ultima transazione
         self._last_action = (self._current_tick, Action.Buy)
         self._done_deal = True
     
     def sell(self): 
-
+        """
+        Esegue l'azione di vendita di asset.
+        Vende tutti gli asset posseduti, aggiorna il budget e registra l'azione eseguita.
+        """
         self._actual_budget += self.prices[self._current_tick] * self._assets_num
         self._assets_num = 0
         self._done_deal = True
         self._last_action = (self._current_tick, Action.Sell)
 
     def hold(self):
-        
+        """
+        Esegue l'azione di mantenimento.
+        Registra l'azione di mantenimento senza modificare il portafoglio.
+        """
         self._done_deal = True
         self._last_action = (self._current_tick, Action.Hold)
         
     def _seed(self, seed=None):
-        
+        """
+        Imposta il seme per la generazione casuale.
+        Args:
+            seed (int, opzionale): Il seme da impostare. Defaults to None.
+        """
         np.random.seed(seed)
         random.seed(seed)
         self.action_space.seed(seed)
 
     def reset(self, seed=None):
-        
+        """
+        Resetta l'ambiente all'inizio di un nuovo episodio.
+        Args:
+            seed (int, opzionale): Il seme per la generazione casuale. Defaults to None.
+        Returns:
+            tuple: Contiene l'osservazione iniziale e informazioni aggiuntive.
+        """
         self._step_profit = 0.
         self._total_reward = 0.
         self._step_reward = 0.
@@ -253,9 +325,18 @@ class CustomStocksEnv(TradingEnv):
         return obs, info
 
     def render(self, mode='human'):
-
+        """
+        Renderizza l'ambiente corrente utilizzando matplotlib.
+        Args:
+            mode (str, opzionale): Modalità di rendering. Defaults to 'human'.
+        """
         def _plot_action(tick, action):
-            
+            """
+            Funzione interna per tracciare le azioni di trading sul grafico.
+            Args:
+                tick (int): Il tick corrente.
+                action (Action): L'azione eseguita.
+            """  
             if action == Action.Sell:
                 plt.plot(tick, self.prices[tick], 'v', markersize=8, color='r', label='Sell Signal')
             elif action == Action.Buy:
@@ -287,7 +368,11 @@ class CustomStocksEnv(TradingEnv):
         plt.pause(pause_time)
 
     def render_all(self, title=None):
-        
+        """
+        Renderizza tutte le azioni eseguite durante l'episodio.
+        Args:
+            title (str, opzionale): Titolo del grafico. Defaults to None.
+        """
         actions_history = [act for act in self.history.get('action', []) if act is not None]
         fig = plt.figure(self.metadata.get('figure_num', 1))
         fig.clear()
@@ -321,7 +406,11 @@ class CustomStocksEnv(TradingEnv):
         plt.pause(pause_time)
 
     def _get_observation(self):
-
+        """
+        Ottiene l'osservazione corrente basata sulla finestra temporale.
+        Returns:
+            list: Lista di array contenenti le caratteristiche dei segnali e il profitto totale normalizzato.
+        """
         start = self._current_tick - self.window_size
         end = self._current_tick
         if start < 0:
@@ -342,7 +431,11 @@ class CustomStocksEnv(TradingEnv):
         return obs_arr
     
     def _get_info(self):
-       
+        """
+        Ottiene informazioni aggiuntive sullo stato corrente dell'ambiente.
+        Returns:
+            dict: Dizionario contenente vari parametri dello stato.
+        """
         return dict(
             step_reward   = self._step_reward,
             total_reward  = self._get_total_reward(),
@@ -360,21 +453,43 @@ class CustomStocksEnv(TradingEnv):
         )
     
     def _get_wallet_value(self):
-        
+        """
+        Calcola il valore attuale del portafoglio.
+        Returns:
+            float: Valore totale del portafoglio.
+        """
         return self._actual_budget + (self.prices[self._current_tick]*self._assets_num)
     
     def _get_total_reward(self):
-        
+        """
+        Ottiene la ricompensa totale accumulata.
+        Returns:
+            float: Ricompensa totale.
+        """
         return self._total_reward
     
     def _get_total_profit(self):
-        
+        """
+        Calcola il profitto totale realizzato.
+        Returns:
+            float: Profitto totale.
+        """
         return self._get_wallet_value() - self.initial_balance
     
     def _get_roi(self):
-        
+        """
+        Calcola il ritorno sull'investimento (ROI).
+        Returns:
+            float: ROI in percentuale.
+        """
         return (self._get_total_profit() / self.initial_balance) * 100
     
     def _set_total_reward(self, step_reward):
-        
+        """
+        Aggiorna la ricompensa totale con la ricompensa dello step corrente.
+        Args:
+            step_reward (float): Ricompensa ottenuta nello step corrente.
+        Returns:
+            float: Nuovo valore della ricompensa totale.
+        """
         return self._total_reward + step_reward

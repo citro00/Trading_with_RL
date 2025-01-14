@@ -14,23 +14,46 @@ import pandas as pd
 
 
 class DQN(nn.Module):
-    
+    """
+    Rete neurale Deep Q-Network per il trading.
+    Architettura a tre layer fully connected con attivazioni ReLU.
+    Args:
+        n_observation (int): Numero di input (caratteristiche dello stato).
+        n_actions (int): Numero di azioni possibili.
+        hidden_layer_dim (int, opzionale): Dimensione del layer nascosto. Defaults to 128.
+    """
     def __init__(self, n_observation, n_actions, hidden_layer_dim=128):
-        
         super(DQN, self).__init__()
         self.layer1 = nn.Linear(n_observation, hidden_layer_dim)
         self.layer2 = nn.Linear(hidden_layer_dim, hidden_layer_dim)
         self.layer3 = nn.Linear(hidden_layer_dim, n_actions)
 
     def forward(self, x):
-    
+        """
+        Passaggio forward della rete.
+        Args:
+            x (torch.Tensor): Input tensor.
+        Returns:
+            torch.Tensor: Output delle azioni Q-value.
+        """
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
         return self.layer3(x)
     
     
 class DQNAgent:
-
+    """
+    Agente Deep Q-Network per l'apprendimento nel trading.
+    Gestisce l'interazione con l'ambiente, la memorizzazione delle esperienze,
+    l'aggiornamento della rete neurale e l'addestramento.
+    Args:
+        state_size (int): Dimensione dello stato.
+        action_size (int): Numero di azioni possibili.
+        batch_size (int): Dimensione del batch per il replay.
+        device (torch.device): Dispositivo per l'elaborazione (CPU o GPU).
+        epsilon_decay (float): Fattore di decadimento dell'epsilon per l'esplorazione.
+        render_mode (Literal['step', 'episode', 'off'], opzionale): Modalità di rendering. Defaults to 'off'.
+    """   
 
     def __init__(self, state_size, action_size, batch_size, device, epsilon_decay, render_mode: Literal['step', 'episode', 'off']='off'):
         
@@ -59,16 +82,28 @@ class DQNAgent:
         self.render_mode = render_mode
 
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
-        
+        """
+        Imposta la modalità di rendering.
+        Args:
+            render_mode (Literal['step', 'episode', 'off']): Modalità di rendering.
+        """
         self.render_mode = render_mode
 
   
     def decay_epsilon(self):
-        
+        """
+        Riduce l'epsilon per diminuire l'esplorazione nel tempo.
+        """
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
     def act(self, state):
-
+        """
+        Seleziona un'azione basata sulla politica epsilon-greedy.
+        Args:
+            state (np.ndarray): Stato corrente.
+        Returns:
+            int: Azione selezionata.
+         """
         if random.random() <= self.epsilon:
             return random.randrange(self.action_size)
         s = torch.tensor(state, dtype=torch.float32, device=self.device)
@@ -76,12 +111,24 @@ class DQNAgent:
     
 
     def remember(self, state, action, reward, next_state, done):
-        
+        """
+        Memorizza un'esperienza nella memoria.
+        Args:
+            state (np.ndarray): Stato corrente.
+            action (int): Azione eseguita.
+            reward (float): Ricompensa ricevuta.
+            next_state (np.ndarray): Stato successivo.
+            done (bool): Indicatore di fine episodio.
+        """
         self.memory.append((state, action, reward, next_state, done))
         
 
     def replay(self):
-        
+        """
+        Esegue il replay delle esperienze per addestrare la rete neurale.
+        Returns:
+            float: Valore della perdita calcolata, oppure None se il batch non è sufficiente.
+        """
         if len(self.memory) < self.batch_size:
             return
         
@@ -109,7 +156,13 @@ class DQNAgent:
         return loss.item()
 
     def train_agent(self, env:TradingEnv, episodes, seed=False):
-
+        """
+        Addestra l'agente attraverso interazioni con l'ambiente.
+        Args:
+            env (TradingEnv): Ambiente di trading.
+            episodes (int): Numero di episodi di addestramento.
+            seed (bool, opzionale): Se True, imposta un seed per la riproducibilità. Defaults to False.
+        """
         per_step_metrics = {
             'step_reward': [],
             'delta_p': [],
@@ -186,7 +239,15 @@ class DQNAgent:
         print("Addestramento completato.")
 
     def evaluate_agent(self, env:TradingEnv):
+        """
+        Valuta le prestazioni dell'agente sull'ambiente.
 
+        Args:
+            env (TradingEnv): Ambiente di trading.
+
+        Returns:
+            tuple: Contiene il profitto totale, la ricompensa totale e altre informazioni.
+        """
         self.epsilon = 0  # Disattiva esplorazione durante la valutazione
         state, info = env.reset()
         prices = state[:-1]
