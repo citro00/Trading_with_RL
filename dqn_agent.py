@@ -8,7 +8,6 @@ import torch.optim as optim
 from collections import deque
 from tqdm import tqdm
 from plots import MetricPlots
-import matplotlib.pyplot as plt
 import utils as ut
 from gym_anytrading.envs import TradingEnv
 import pandas as pd
@@ -17,6 +16,7 @@ import pandas as pd
 class DQN(nn.Module):
     
     def __init__(self, n_observation, n_actions, hidden_layer_dim=128):
+        
         super(DQN, self).__init__()
         self.layer1 = nn.Linear(n_observation, hidden_layer_dim)
         self.layer2 = nn.Linear(hidden_layer_dim, hidden_layer_dim)
@@ -34,7 +34,6 @@ class DQNAgent:
 
     def __init__(self, state_size, action_size, batch_size, device, epsilon_decay, render_mode: Literal['step', 'episode', 'off']='off'):
         
-        
         self.state_size = state_size
         self.action_size = action_size
         self.batch_size = batch_size
@@ -47,7 +46,6 @@ class DQNAgent:
         self.epsilon_min = 0.01  
         self.epsilon_decay = epsilon_decay
         self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
-
         self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())  
         self.target_model.eval() 
@@ -65,7 +63,7 @@ class DQNAgent:
         self.render_mode = render_mode
 
   
-    def dacay_epsilon(self):
+    def decay_epsilon(self):
         
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
@@ -84,7 +82,6 @@ class DQNAgent:
 
     def replay(self):
         
-
         if len(self.memory) < self.batch_size:
             return
         
@@ -165,7 +162,7 @@ class DQNAgent:
             if episode % 5 == 0:
                 self.target_model.load_state_dict(self.model.state_dict())
 
-            self.dacay_epsilon()
+            self.decay_epsilon()
             
             if self.render_mode == 'episode':
                 env.render_all(f"Episode {episode}")

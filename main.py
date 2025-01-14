@@ -2,7 +2,6 @@ import argparse
 import pandas as pd
 import torch
 import matplotlib.pyplot as plt
-
 from custom_env import CustomStocksEnv
 from dqn_agent import DQNAgent
 from q_learning_agent import QLAgent
@@ -10,9 +9,7 @@ import utils as ut
 
 
 def setup_environment(symbols, start_date, end_date, window_size, initial_balance, model):
-    """
-    Crea e restituisce l'ambiente CustomStocksEnv, dati i parametri.
-    """
+
     # Scarica i dati come dizionario
     data = ut.get_data_dict(start_date, end_date, symbols)
     
@@ -31,9 +28,7 @@ def setup_environment(symbols, start_date, end_date, window_size, initial_balanc
 
 
 def select_agent(model, state_size, action_size, batch_size, device, initial_balance, epsilon_decay):
-    """
-    Restituisce l'agente in base al modello scelto.
-    """
+
     if model == "DQN":
         agent = DQNAgent(
             state_size=state_size,
@@ -45,7 +40,7 @@ def select_agent(model, state_size, action_size, batch_size, device, initial_bal
     elif model == "QL":
         agent = QLAgent(
             action_size=action_size,
-            initial_balance=initial_balance
+
         )
     else:
         raise ValueError(f"Modello '{model}' non supportato.")
@@ -53,6 +48,7 @@ def select_agent(model, state_size, action_size, batch_size, device, initial_bal
 
 
 def main():
+    
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--model", type=str, choices=["DQN", "QL"], default="DQN", help="Modello da utilizzare (DQN/QL)")
     argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
@@ -60,7 +56,6 @@ def main():
     argparser.add_argument("--epsilon-decay", type=float, default=0.95, help="Fattore di decadimento del parametro epsylon")
 
     args = argparser.parse_args()
-
 
     # Parametri base
     model = args.model

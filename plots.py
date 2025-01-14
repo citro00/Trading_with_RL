@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 
 class MetricPlots:
+    
     def __init__(self, figure_num=1):
         fig = plt.figure(figure_num, figsize=(15, 5),  layout="constrained")
         self.plots = fig.subplot_mosaic(
@@ -14,6 +15,7 @@ class MetricPlots:
         plt.ion()
 
     def _set_plot_labels(self):
+        
         self.plots['total_profit'].set_title("Total Profit")
         self.plots['total_profit'].set_xlabel("Episode")
         self.plots['total_profit'].set_ylabel("Profit")
@@ -39,6 +41,7 @@ class MetricPlots:
         self.plots['wallet_value'].set_ylabel("Value")
 
     def plot_metrics(self, show=False, **kwargs):
+        
         if not self.plots:
             self.init_plots()
         
