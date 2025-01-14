@@ -5,30 +5,15 @@ from sklearn.preprocessing import StandardScaler
 from action import Action
 import random
 import matplotlib.pyplot as plt
-import time
+
 
 
 class CustomStocksEnv(TradingEnv):
-    """
-    CustomStocksEnv è un'estensione di TradingEnv progettata per simulare un ambiente di trading di azioni. 
-    Fornisce una struttura per valutare strategie di trading su più asset, utilizzando dati di mercato reali 
-    o simulati. L'ambiente supporta l'acquisto, la vendita e il mantenimento di posizioni e calcola ricompense 
-    basate sui profitti o perdite ottenuti.
-    """
 
     metadata = {'render_modes': ['human'], 'render_fps': 30, 'figure_num': 999, 'plot_holds': False}
 
     def __init__(self, df:dict, window_size, frame_bound, normalize=True, initial_balance=1000):
         
-        """
-        Inizializza l'ambiente con i parametri forniti, come il bilancio iniziale, la finestra di osservazione 
-        e i dati di input. Seleziona un asset casuale dai dati forniti per iniziare.
-        :param df: Dizionario contenente i dati per ogni asset.
-        :param window_size: Dimensione della finestra di osservazione.
-        :param frame_bound: Limiti del range temporale per i dati.
-        :param normalize: Flag per normalizzare i dati di input.
-        :param initial_balance: Bilancio iniziale del portafoglio.
-        """
         # Inizializza variabili dell'ambiente
         self.frame_bound = frame_bound
         self.initial_balance = initial_balance
@@ -40,7 +25,6 @@ class CustomStocksEnv(TradingEnv):
         self._assets_num = None
         self._done_deal = None
         self._last_trade_tick = None
-        self.sell_rois = [] 
         self._last_action: tuple[int, Action] = None
         self.df_dict = df        
         self._current_asset = random.choice(list(self.df_dict.keys()))
@@ -65,11 +49,6 @@ class CustomStocksEnv(TradingEnv):
 
     def _process_data(self):
         
-        """
-        Prepara i dati di input per l'ambiente, includendo la normalizzazione e il calcolo delle feature 
-        per la finestra di osservazione.
-        :return: Prezzi e feature di segnale processate.
-        """
 
         required_columns = ['Close', 'Volume']
         if not all(col in self.df.columns for col in required_columns):
@@ -90,30 +69,20 @@ class CustomStocksEnv(TradingEnv):
 
         return prices, signal_features
 
-    #def _calculate_reward(self, action):
+    def _calculate_reward(self, action):
         
-        """
-        Calcola la ricompensa in base all'azione eseguita, considerando il profitto o la perdita e lo stato 
-        del deal corrente.
-        :param action: Azione eseguita (Buy, Sell, Hold).
-        :return: Ricompensa associata all'azione.
-        """
 
-        """beta1=0.02  # Peso penalità per trading eccessivo
+        beta1=0.02  # Peso penalità per trading eccessivo
         beta2=0.01  # Peso penalità per inattività
         alpha=0.3 # Peso penalità per drawdown
         lambda_T=0.005  # Peso riduzione costi di transazione
         lambda_D=0.5  # Peso riduzione drawdown
         lambda_H=0.03  # Peso riduzione penalità comportamentali
-        #min_price = min(self.prices)
-        #max_price = max(self.prices)
-
         self._delta_p_normalized = self._delta_p/(self._max_wallet_value-self._min_wallet_value)
 
         # Calcolo il transaction cost rispetto al prezzo corrente dell'azione
         transaction_cost = abs(0.05*self.prices[self._current_tick])
         transaction_cost_norm = transaction_cost * lambda_T
-
 
         if ((self._max_wallet_value - self._get_wallet_value()) / self._max_wallet_value) > 0.5:
             # Se la perdita allo step attuale è più grande del 10 percento del valore massimo di drawdown setta drawdown
@@ -141,46 +110,39 @@ class CustomStocksEnv(TradingEnv):
             reward = self._delta_p_normalized - transaction_cost_norm - self._drawdown - self._h
         else:
             reward = - 0.5
-        return reward"""
-
-    def _calculate_reward(self, action):
-        # QUESTA FUNZIONA. NON TOCCARE !!!!!
-        beta1=2.5  # Peso penalità per trading eccessivo
-        beta2=1.2  # Peso penalità per inattività
-        alpha=1.4 # Peso penalità per drawdown
-        lambda_T=0.005  # Peso riduzione costi di transazione
-        lambda_D=1.5  # Peso riduzione drawdown
-        lambda_H=2  # Peso riduzione penalità comportamentali
-        limite_penalità=100  # Soglia massima per penalità complessiva
-        #min_price = min(self.prices)
-        #max_price = max(self.prices)
-
-        self._delta_p_normalized = self._delta_p/(self._max_wallet_value-self._min_wallet_value)
-
-        # Calcolo il transaction cost rispetto al prezzo corrente dell'azione
-        transaction_cost = abs(0.05*self.prices[self._current_tick])
-        transaction_cost_norm = transaction_cost * lambda_T
-
-        if self._done_deal:
-            reward = self._delta_p_normalized - transaction_cost_norm
-        else:
-            reward = - 0.5
-        
         return reward
-            
+        """
+        def _calculate_reward(self, action):
+            # QUESTA FUNZIONA. NON TOCCARE !!!!!
+            beta1=2.5  # Peso penalità per trading eccessivo
+            beta2=1.2  # Peso penalità per inattività
+            alpha=1.4 # Peso penalità per drawdown
+            lambda_T=0.005  # Peso riduzione costi di transazione
+            lambda_D=1.5  # Peso riduzione drawdown
+            lambda_H=2  # Peso riduzione penalità comportamentali
+            limite_penalità=100  # Soglia massima per penalità complessiva
+            #min_price = min(self.prices)
+            #max_price = max(self.prices)
+
+            self._delta_p_normalized = self._delta_p/(self._max_wallet_value-self._min_wallet_value)
+
+            # Calcolo il transaction cost rispetto al prezzo corrente dell'azione
+            transaction_cost = abs(0.05*self.prices[self._current_tick])
+            transaction_cost_norm = transaction_cost * lambda_T
+
+            if self._done_deal:
+                reward = self._delta_p_normalized - transaction_cost_norm
+            else:
+                reward = - 0.5
+        
+            return reward
+         """      
+    
     def _update_profit(self, action) :
         
-        """
-        Aggiorna il profitto del passo corrente in base all'azione eseguita.
-        :param action: Azione eseguita (Buy, Sell, Hold).
-        """
-        
-        #self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])*assets
         if action == Action.Sell.value:
             self._step_profit = (self.prices[self._current_tick]-self.prices[self._last_trade_tick])*self._last_assets_num
-        '''elif action == Action.Buy.value:
-            self._step_profit = - (self.prices[self._current_tick])*assets'''
-          
+        #aggiornamnto delta p dentro
 
     def update_max_min_wallet_value(self, actual_wallet_value):
         self._max_wallet_value = max(self._max_wallet_value, actual_wallet_value)
@@ -190,16 +152,9 @@ class CustomStocksEnv(TradingEnv):
 
     def step(self, action):
         
-        """
-        Esegue un passo nell'ambiente in base all'azione selezionata. Aggiorna lo stato, calcola la ricompensa 
-        e controlla se l'episodio è terminato.
-        :param action: Azione selezionata (Buy, Sell, Hold).
-        :return: Osservazione corrente, ricompensa del passo, stato di termine, stato di troncamento, e informazioni aggiuntive.
-        """
-
         self._terminate = False
         self._current_tick += 1
-        #self._step_profit = 0.
+
         self._step_reward = 0.
         self._done_deal = False
 
@@ -213,6 +168,9 @@ class CustomStocksEnv(TradingEnv):
         self._last_action = None
         self._last_assets_num = self._assets_num
         last_p = (self._actual_budget + self.prices[self._last_trade_tick]*self._last_assets_num)
+        
+        if self._current_tick % 30 == 0:
+            self._transaction_number=0
         if action == Action.Buy.value and self._actual_budget >= self.prices[self._current_tick]:
             # Se l'azione selezionata è buy e il budget disponibile è superiore al prezzo corrente dell'asset: 
             self.buy()
@@ -224,14 +182,13 @@ class CustomStocksEnv(TradingEnv):
         elif action == Action.Hold.value:
             self.hold()
         actual_p = (self._actual_budget + self.prices[self._current_tick]*self._assets_num)
-        #print(f"Actual_p: {actual_p}")
         self._delta_p = actual_p - last_p
         self._update_profit(action)
         self.update_max_min_wallet_value(self._get_wallet_value())
         self._step_reward = self._calculate_reward(action)
         if (action == Action.Sell.value or action == Action.Buy.value) and self._done_deal:
             self._last_trade_tick = self._current_tick
-
+            self._transaction_number += 1
         self._total_reward = self._set_total_reward(self._step_reward)
         observation = self._get_observation()
         info = self._get_info()
@@ -244,24 +201,16 @@ class CustomStocksEnv(TradingEnv):
     
     
     def buy(self):
-        """
-        Esegue un'azione di acquisto, aggiornando il budget e il numero di asset posseduti.
-        """
         
         qty = self._actual_budget // self.prices[self._current_tick]
         self._actual_budget -= (self.prices[self._current_tick] * qty)
         self._assets_num += qty
-
         # Salviamo il tick corrente come tick di acquisto e tick dell'ultima transazione
         self._last_action = (self._current_tick, Action.Buy)
-
         self._done_deal = True
     
     def sell(self): 
-        """
-        Esegue un'azione di vendita, aggiornando il budget e resettando il numero di asset posseduti.
-        """
-        
+
         self._actual_budget += self.prices[self._current_tick] * self._assets_num
         self._assets_num = 0
         self._done_deal = True
@@ -272,21 +221,13 @@ class CustomStocksEnv(TradingEnv):
         self._last_action = (self._current_tick, Action.Hold)
         
     def _seed(self, seed=None):
-        """
-        Imposta il seed per la riproducibilità.
-        :param seed: Seed op
-        """
+        
         np.random.seed(seed)
         random.seed(seed)
         self.action_space.seed(seed)
 
     def reset(self, seed=None):
         
-        """
-        Reinizializza l'ambiente per un nuovo episodio, resettando lo stato e selezionando un asset casuale.
-        :param seed: Seed opzionale per la riproducibilità.
-        :return: Osservazione iniziale e informazioni aggiuntive.       
-        """
         self._step_profit = 0.
         self._total_reward = 0.
         self._step_reward = 0.
@@ -317,8 +258,6 @@ class CustomStocksEnv(TradingEnv):
     def render(self, mode='human'):
 
         def _plot_action(tick, action):
-            '''if self._current_tick != tick:
-                return # Plot only last action'''
             if action == Action.Sell:
                 plt.plot(tick, self.prices[tick], 'v', markersize=8, color='r', label='Sell Signal')
             elif action == Action.Buy:
@@ -386,10 +325,6 @@ class CustomStocksEnv(TradingEnv):
         plt.pause(pause_time)
 
     def _get_observation(self):
-        """
-        Genera l'osservazione corrente basata sulla finestra temporale specificata, includendo padding se necessario.
-        :return: Osservazione corrente come array di feature.
-        """
 
         start = self._current_tick - self.window_size
         end = self._current_tick
@@ -407,19 +342,11 @@ class CustomStocksEnv(TradingEnv):
         obs_arr = []
         for col in range(0,obs.shape[1]):
             obs_arr.append(obs[:,col])
-
-        #obs = obs.flatten()
-        #obs = np.concatenate((obs_arr, [self._get_total_profit()/self.initial_balance]), axis=0)
         obs_arr.append(self._get_total_profit()/self.initial_balance)
         return obs_arr
     
     def _get_info(self):
-        """
-        Genera un dizionario con informazioni dettagliate sullo stato corrente dell'ambiente, inclusi 
-        profitti, bilancio e dettagli dell'asset.
-        :return: Dizionario con informazioni sullo stato.
-        """
-
+       
         return dict(
             step_reward   = self._step_reward,
             total_reward  = self._get_total_reward(),
@@ -437,38 +364,16 @@ class CustomStocksEnv(TradingEnv):
         )
     
     def _get_wallet_value(self):
-        """
-        Calcola il valore totale del portafoglio, includendo il bilancio e il valore degli asset posseduti.
-        :return: Valore totale del portafoglio.
-        """
         return self._actual_budget + (self.prices[self._current_tick]*self._assets_num)
     
     def _get_total_reward(self):
-        """
-        Restituisce la ricompensa totale accumulata fino al momento corrente.
-        :return: Ricompensa totale.
-        """
         return self._total_reward
     
     def _get_total_profit(self):
-        """
-        Calcola il profitto totale accumulato fino al momento corrente.
-        :return: Profitto totale.
-        """
         return self._get_wallet_value() - self.initial_balance
     
     def _get_roi(self):
-        """
-        Calcola il ritorno sull'investimento (ROI) in percentuale.
-        :return: ROI in percentuale.
-        """
         return (self._get_total_profit() / self.initial_balance) * 100
     
     def _set_total_reward(self, step_reward):
-        """
-        Aggiorna la ricompensa totale accumulata aggiungendo la ricompensa del passo corrente.
-        :param step_reward: Ricompensa del passo corrente.
-        :return: Nuova ricompensa totale.
-        """
-
         return self._total_reward + step_reward

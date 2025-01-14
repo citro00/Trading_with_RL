@@ -40,7 +40,6 @@ def select_agent(model, state_size, action_size, batch_size, device, initial_bal
             action_size=action_size,
             batch_size=batch_size,
             device=device,
-            initial_balance=initial_balance,
             epsilon_decay=epsilon_decay
         )
     elif model == "QL":
@@ -58,7 +57,7 @@ def main():
     argparser.add_argument("--model", type=str, choices=["DQN", "QL"], default="DQN", help="Modello da utilizzare (DQN/QL)")
     argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
     argparser.add_argument("--initial-balance", type=int, default=10000, help="Saldo iniziale")
-    argparser.add_argument("--epsilon-decay", type=float, default=0.89, help="Fattore di decadimento del parametro epsylon")
+    argparser.add_argument("--epsilon-decay", type=float, default=0.95, help="Fattore di decadimento del parametro epsylon")
 
     args = argparser.parse_args()
 

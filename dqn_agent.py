@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque
-
 from tqdm import tqdm
 from plots import MetricPlots
 import matplotlib.pyplot as plt
@@ -15,16 +14,7 @@ from gym_anytrading.envs import TradingEnv
 import pandas as pd
 
 
-
 class DQN(nn.Module):
-    
-    """
-    DQN è una rete neurale profonda utilizzata dall'agente per stimare i valori Q delle azioni 
-    in uno stato dato.
-    :param n_observation: Numero di feature nello stato di input.
-    :param n_actions: Numero di azioni possibili.
-    :param hidden_layer_dim: Dimensione del layer nascosto.
-    """
     
     def __init__(self, n_observation, n_actions, hidden_layer_dim=128):
         super(DQN, self).__init__()
@@ -33,47 +23,23 @@ class DQN(nn.Module):
         self.layer3 = nn.Linear(hidden_layer_dim, n_actions)
 
     def forward(self, x):
-        """
-        Esegue un passaggio in avanti attraverso la rete neurale, applicando ReLU alle unità nascoste 
-        e producendo un output con i valori Q.
-        :param x: Stato di input.
-        :return: Valori Q per tutte le azioni possibili.
-        """
-        
+    
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
         return self.layer3(x)
     
     
 class DQNAgent:
-    
-    """
-    DQNAgent è un agente basato su Deep Q-Learning (DQN) progettato per il trading in ambienti finanziari. 
-    Utilizza una rete neurale profonda per selezionare azioni ottimali in base allo stato dell'ambiente. 
-    Supporta l'apprendimento tramite replay buffer, l'aggiornamento del modello target per stabilità e 
-    l'addestramento/valutazione su ambienti compatibili.
-    """
 
 
-    def __init__(self, state_size, action_size, batch_size, device, epsilon_decay, initial_balance=1000, render_mode: Literal['step', 'episode', 'off']='off'):
+    def __init__(self, state_size, action_size, batch_size, device, epsilon_decay, render_mode: Literal['step', 'episode', 'off']='off'):
         
-        """
-        Inizializza l'agente DQN con parametri come dimensione dello stato, azioni, memoria di replay, 
-        e reti neurali. Configura il processo di apprendimento e i parametri di esplorazione.
-        :param state_size: Numero di feature nello stato di input.
-        :param action_size: Numero di azioni possibili.
-        :param batch_size: Dimensione del batch per il replay buffer.
-        :param device: Dispositivo su cui eseguire i calcoli (CPU o GPU).
-        :param initial_balance: Bilancio iniziale per il trading.
-        :param render_mode: Modalità di rendering ('step', 'episode', 'off').
-        """
         
         self.state_size = state_size
         self.action_size = action_size
         self.batch_size = batch_size
         self.memory = deque(maxlen=10000) 
         self.device = device
-        self.initial_balance = initial_balance 
         
         # Parametri di apprendimento per la rete neurale
         self.gamma = 0.95
@@ -95,37 +61,15 @@ class DQNAgent:
         self.render_mode = render_mode
 
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
-        """
-        Configura la modalità di rendering per l'agente.
-        :param render_mode: Modalità di rendering ('step', 'episode', 'off').
-        """
-
+        
         self.render_mode = render_mode
 
-    def init_weights(self, m):
-        """
-        Inizializza i pesi delle reti neurali con la strategia di He e i bias a zero.
-        :param m: Modulo della rete (layer).
-        """
-        
-        if isinstance(m, nn.Linear):
-            nn.init.kaiming_uniform_(m.weight, nonlinearity='relu') 
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)  
   
     def dacay_epsilon(self):
-        """
-        Riduce gradualmente il valore di epsilon per diminuire l'esplorazione e favorire lo sfruttamento 
-        della conoscenza acquisita.
-        """
+        
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
     def act(self, state):
-        """
-        Seleziona un'azione basandosi su esplorazione casuale (ε-greedy) o sfruttamento del modello DQN.
-        :param state: Stato corrente.
-        :return: Azione selezionata (indice).
-        """
 
         if random.random() <= self.epsilon:
             return random.randrange(self.action_size)
@@ -134,23 +78,12 @@ class DQNAgent:
     
 
     def remember(self, state, action, reward, next_state, done):
-        """
-        Memorizza una transizione nello storico delle esperienze.
-        :param state: Stato corrente.
-        :param action: Azione eseguita.
-        :param reward: Ricompensa ricevuta.
-        :param next_state: Stato successivo.
-        :param done: Flag che indica se l'episodio è terminato.
-        """
+        
         self.memory.append((state, action, reward, next_state, done))
         
 
     def replay(self):
-        """
-        Addestra il modello prelevando un batch di esperienze dalla memoria e aggiornando i pesi 
-        utilizzando il target Q e la perdita Huber.
-        :return: Valore della perdita media per il batch.
-        """
+        
 
         if len(self.memory) < self.batch_size:
             return
@@ -176,20 +109,9 @@ class DQNAgent:
         loss.backward()
         self.optimizer.step()
 
-        # Riduci il tasso di esplorazione (epsilon) per favorire l'uso delle azioni apprese
-        # if self.epsilon > self.epsilon_min:
-        #     self.epsilon *= self.epsilon_decay
-        # self.dacay_epsilon()
-
         return loss.item()
 
     def train_agent(self, env:TradingEnv, episodes, seed=False):
-        """
-        Addestra l'agente su un ambiente di trading per un numero specificato di episodi. Aggiorna 
-        il modello target periodicamente e traccia le metriche di performance.
-        :param env: Ambiente di trading.
-        :param episodes: Numero di episodi di addestramento.
-        """
 
         per_step_metrics = {
             'step_reward': [],
@@ -260,19 +182,13 @@ class DQNAgent:
             roi = info['roi']
             
             tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
-            #plt.show(block=True)
+
         if self.render_mode == 'off':
             self._metrics_display.plot_metrics(**per_step_metrics)
             self._metrics_display.plot_metrics(**per_episode_metrics, show=True)
         print("Addestramento completato.")
 
     def evaluate_agent(self, env:TradingEnv):
-        """
-        Valuta l'agente eseguendo un episodio di trading senza esplorazione (ε=0). Mostra i risultati 
-        finali e opzionalmente visualizza il comportamento dell'agente.
-        :param env: Ambiente di trading.
-        :return: Profitto totale, ricompensa totale e informazioni aggiuntive.
-        """
 
         self.epsilon = 0  # Disattiva esplorazione durante la valutazione
         state, info = env.reset()
