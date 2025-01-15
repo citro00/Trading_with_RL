@@ -49,9 +49,6 @@ class CustomStocksEnv(TradingEnv):
         self._current_asset = random.choice(list(self.df_dict.keys()))
         self._transaction_number = None
         self._delta_p = None
-        self._delta_p_normalized = None
-        self._drawdown = None
-        self._h = None
         self._last_assets_num = None
         self._max_wallet_value = None
         self._min_wallet_value = None
@@ -106,7 +103,6 @@ class CustomStocksEnv(TradingEnv):
         Returns:
             float: Ricompensa calcolata.
         """
-
         beta1=0.02  #Penalità per trading eccessivo
         beta2=0.01  #Penalità per inattività
         alpha=0.3   #Penalità per drawdown
@@ -114,9 +110,7 @@ class CustomStocksEnv(TradingEnv):
         lambda_D=0.5   #Peso riduzione drawdown
         lambda_H=0.03  #Peso riduzione penalità comportamentali
         
-        self._delta_p_normalized = self._delta_p/(self._max_wallet_value-self._min_wallet_value)
-
-        # Calcolo il transaction cost rispetto al prezzo corrente dell'azione
+        delta_p_normalized = self._delta_p/(self._max_wallet_value-self._min_wallet_value)
         transaction_cost = abs(0.05*self.prices[self._current_tick])
         transaction_cost_norm = transaction_cost * lambda_T
 
@@ -127,20 +121,16 @@ class CustomStocksEnv(TradingEnv):
             drawdown = 0
 
         h_trading_eccessivo = max(0, beta1*(self._transaction_number))
-
-        # Calcolo step inattivi
         step_inattivo = self._current_tick - self._last_trade_tick
         h_inattività = max(0, beta2 *(step_inattivo))
         
         # Calcolo penalità comportamentale 
         h = h_trading_eccessivo + h_inattività
-
-        # Calcolo i parametri di penalizzazione normalizzati
-        self._drawdown = drawdown * lambda_D
-        self._h = h * lambda_H
+        drawdown *= lambda_D
+        h *= lambda_H
         
         if self._done_deal:
-            reward = self._delta_p_normalized - transaction_cost_norm - self._drawdown - self._h
+            reward = delta_p_normalized - transaction_cost_norm - drawdown - h
         else:
             reward = - 0.5
             
@@ -307,12 +297,9 @@ class CustomStocksEnv(TradingEnv):
         self._last_trade_tick = 0
         self._transaction_number = 0
         self._delta_p = 0
-        self._delta_p_normalized = 0
         self._last_assets_num = 0
         self._max_wallet_value = 0
         self._min_wallet_value = 0
-        self._drawdown = 0
-        self._h = 0
         self._truncated = False 
         self._terminate = False
         obs, info = super().reset(seed=seed)
