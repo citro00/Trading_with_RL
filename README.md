@@ -74,7 +74,7 @@ L'agente Q-Learning è un approccio tabulare che utilizza una tabella Q per stim
 
 La funzione di ricompensa valuta la redditività di ogni azione:
 
-$$R(s_t, a_t) = \Delta P_t - \text{penalità}_h - \text{penalità}\_{drawdown} - \text{penalità}_t$$
+$$R(s_t, a_t) = \Delta P_t - \text{penalità}_h - \text{penalità}\_{drawdown} - \text{penalità}\_{transazione}$$
 
 Dove:
 - $\Delta P_t$: variazione del valore del portafoglio.
