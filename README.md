@@ -28,7 +28,7 @@ Questo progetto implementa un ambiente di trading per simulare e valutare strate
 
 I componenti principali includono:
 
-1. **Ambiente di Trading Personalizzato**: Basato su `gym_anytrading`, esteso per il trading multi-asset.
+1. **Ambiente di Trading Personalizzato**: Basato su gym_anytrading, esteso per il trading multi-asset.
 2. **Agenti di Reinforcement Learning**: Implementazioni sia di DQN che di Q-Learning tabulare.
 3. **Preprocessing dei Dati**: Funzioni per scaricare, pulire e arricchire i dati finanziari da Yahoo Finance.
 4. **Pipeline di Addestramento e Valutazione**: Routine automatizzate per addestrare e testare gli agenti su dati di mercato storici.
@@ -74,19 +74,29 @@ L'agente Q-Learning è un approccio tabulare che utilizza una tabella Q per stim
 
 La funzione di ricompensa valuta la redditività di ogni azione:
 
-- **Ricompensa di Vendita:**
-$$R_{sell} = \log\left(\frac{P_t}{P_{t_{last}}}\right) + c \text{ se } P_t > P_{t_{last}} \text{ altrimenti } \log\left(\frac{P_t}{P_{t_{last}}}\right) - c$$
-
-- **Ricompensa di Acquisto:**
-$$R_{buy} = \log\left(\frac{P_{t_{last}}}{P_t}\right) + c \text{ se } P_t < P_{t_{last}} \text{ altrimenti } \log\left(\frac{P_{t_{last}}}{P_t}\right) - c$$
-
-- **Ricompensa di Mantenimento:**
-$$R_{hold} = \log\left(\frac{P_t}{P_{t_{last}}}\right) + c \text{ se } P_t > P_{t_{last}} \text{ altrimenti } \log\left(\frac{P_t}{P_{t_{last}}}\right) - c$$
+$$R(s_t, a_t) = \Delta P_t - \text{penalit\`a}_h - \text{penalit\`a}_{\text{drawdown}} - \text{penalit\`a}_{\text{transazione}}$$
 
 Dove:
-- $P_t$: Prezzo al tick corrente.
-- $P_{t_{last}}$: Prezzo all'ultimo trade.
-- $c$: Costante di bias per incentivare azioni positive.
+- $\Delta P_t$: variazione del valore del portafoglio.
+- Penalità per inattività, drawdown, e costi di transazione.
+
+**Delta del portafoglio:**
+$$\Delta P_t = V_t - V_{\tau}$$
+Dove:
+- $V_t = \text{cash}_t + (\text{azioni}_t \cdot \text{prezzo}_t)$: valore attuale del portafoglio.
+- $V_{\tau}$: valore del portafoglio all'ultimo trade.
+
+**Penalità di inattività:**
+$$\text{penalit\`a}_h = \lambda_h (\beta_a \cdot n_{\text{azioni}} + \beta_i \cdot n_{\text{hold}})$$
+
+**Penalità di drawdown:**
+$$\text{penalit\`a}_{\text{drawdown}} = \lambda_d \cdot \begin{cases} 
+\alpha \cdot \frac{V_{\max} - V_t}{V_{\max}}, & \text{se } \frac{V_{\max} - V_t}{V_{\max}} > 0.5 \\
+0, & \text{altrimenti}
+\end{cases}$$
+
+**Penalità di transazione:**
+$$\text{penalit\`a}_{\text{transazione}} = \lambda_t \cdot 0.05 \cdot \text{prezzo}_t$$
 
 ### **Regola di Aggiornamento del Q-Learning**
 
@@ -115,7 +125,7 @@ Dove $\theta$ sono i parametri del modello online e $\theta^-$ sono i parametri 
    - Pulisci e pre-elabora i dati per calcolare metriche come rendimento giornaliero, rendimento cumulativo, SMA e VWAP.
 
 2. **Configurazione dell'Ambiente:**
-   - Configura `CustomStocksEnv` con i dati pre-elaborati e i parametri di trading.
+   - Configura CustomStocksEnv con i dati pre-elaborati e i parametri di trading.
 
 3. **Inizializzazione dell'Agente:**
    - Scegli tra l'agente DQN e Q-Learning in base al tipo di addestramento desiderato.
@@ -141,7 +151,7 @@ Dove $\theta$ sono i parametri del modello online e $\theta^-$ sono i parametri 
    ```
 
 3. **Seleziona il Tipo di Agente:**
-   Durante l'esecuzione, scegli tra `DQN` o `QL`.
+   Durante l'esecuzione, scegli tra DQN o QL.
 
 ---
 
