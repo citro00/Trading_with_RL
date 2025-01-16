@@ -92,7 +92,7 @@ Dove:
 
 **Penalità di inattività:**
 
-h = $$\lambda_h (\beta_a \cdot n_{\text{azioni}} + \beta_i \cdot n_{\text{hold}})$$
+$$h = \lambda_h (\beta_a \cdot n_{\text{azioni}} + \beta_i \cdot n_{\text{hold}})$$
 
 
 **Penalità di drawdown:**
