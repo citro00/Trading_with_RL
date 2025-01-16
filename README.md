@@ -77,8 +77,8 @@ La funzione di ricompensa valuta la redditività di ogni azione:
 $$
 R(s_t, a_t) = \Delta P_t 
               - \text{penalita}_h
-              - \text{penalita}_{\text{drawdown}}
-              - \text{penalita}_{\text{transazione}}
+              - \text{penalita}_{drawdown}
+              - \text{penalita}_{transazione}
 $$
 
 Dove:
