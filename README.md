@@ -81,21 +81,23 @@ Dove:
 - Penalità per inattività, drawdown, e costi di transazione.
 
 **Delta del portafoglio:**
+
 $$\Delta P_t = V_t - V_{\tau}$$
+
 Dove:
 - $V_t = \text{cash}_t + (\text{azioni}_t \cdot \text{prezzo}_t)$: valore attuale del portafoglio.
 - $V_{\tau}$: valore del portafoglio all'ultimo trade.
 
 **Penalità di inattività:**
 $$
-\text{penalità}_h = \lambda_h (\beta_a \cdot n_{\text{azioni}} + \beta_i \cdot n_{\text{hold}})
+\text{penalit\`a}_h = \lambda_h (\beta_a \cdot n_{\text{azioni}} + \beta_i \cdot n_{\text{hold}})
 $$
 
 **Penalità di drawdown:**
+
 $$
-\text{penalità}_{\text{drawdown}} = \lambda_d \cdot 
-\begin{cases} 
-\alpha \cdot \frac{V_{\max} - V_t}{V_{\max}}, & \text{se } \frac{V_{\max} - V_t}{V_{\max}} > 0.5 \\ 
+\lambda_d \cdot \begin{cases} 
+\alpha \cdot \frac{V_{\max} - V_t}{V_{\max}}, & \text{se } \frac{V_{\max} - V_t}{V_{\max}} > 0.5 \\
 0, & \text{altrimenti}
 \end{cases}
 $$
