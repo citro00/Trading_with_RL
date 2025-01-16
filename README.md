@@ -79,8 +79,8 @@ $$R(s_t, a_t) = \Delta P_t - \text{penalità}_h - \text{penalità}\_{drawdown} -
 Dove:
 - $\Delta P_t$: variazione del valore del portafoglio.
 - $\text{penalità}_h$: penalità per inattività.
-- $\text{penalità}_d$: penalità drawdown.
-- $\text{penalità}_t$: penalità di transazione.
+- $\text{penalità}_{drawdown}$: penalità drawdown.
+- $\text{penalità}_{transazione}$: penalità di transazione.
 
 **Delta del portafoglio:**
 
