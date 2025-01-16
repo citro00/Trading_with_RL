@@ -90,7 +90,7 @@ Dove:
 
 **Penalità di inattività:**
 
-h = $\lambda_h (\beta_a \cdot n_{\text{azioni}} + \beta_i \cdot n_{\text{hold}})$
+h = $$\lambda_h (\beta_a \cdot n_{\text{azioni}} + \beta_i \cdot n_{\text{hold}})$$
 
 
 **Penalità di drawdown:**
@@ -103,7 +103,8 @@ $$
 $$
 
 **Penalità di transazione:**
-$$\text{penalit\`a}_{\text{transazione}} = \lambda_t \cdot 0.05 \cdot \text{prezzo}_t$$
+
+$$\lambda_t \cdot 0.05 \cdot \text{prezzo}_t$$
 
 ### **Regola di Aggiornamento del Q-Learning**
 
