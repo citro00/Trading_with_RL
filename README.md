@@ -93,10 +93,9 @@ $$
 \text{penalit\`a}_h = \lambda_h (\beta_a \cdot n_{\text{azioni}} + \beta_i \cdot n_{\text{hold}})
 $$
 
-**Penalità di drawdown:**
 
 $$
-\lambda_d \cdot \begin{cases} 
+\text{penalit\`a}_{\text{drawdown}} = \lambda_d \cdot \begin{cases} 
 \alpha \cdot \frac{V_{\max} - V_t}{V_{\max}}, & \text{se } \frac{V_{\max} - V_t}{V_{\max}} > 0.5 \\
 0, & \text{altrimenti}
 \end{cases}
