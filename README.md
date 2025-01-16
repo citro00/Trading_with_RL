@@ -74,7 +74,7 @@ L'agente Q-Learning è un approccio tabulare che utilizza una tabella Q per stim
 
 La funzione di ricompensa valuta la redditività di ogni azione:
 
-$$R(s_t, a_t) = \Delta P_t - \text{penalit\`a}_h - \text{penalit\`a}_{\text{drawdown}} - \text{penalit\`a}_{\text{transazione}}$$
+$R(s_t, a_t) = \Delta P_t - \text{penalit\`a}_h - \text{penalit\`a}_{\text{drawdown}} - \text{penalit\`a}_{\text{transazione}}$
 
 Dove:
 - $\Delta P_t$: variazione del valore del portafoglio.
@@ -90,10 +90,7 @@ Dove:
 $$\text{penalit\`a}_h = \lambda_h (\beta_a \cdot n_{\text{azioni}} + \beta_i \cdot n_{\text{hold}})$$
 
 **Penalità di drawdown:**
-$$\text{penalit\`a}_{\text{drawdown}} = \lambda_d \cdot \begin{cases} 
-\alpha \cdot \frac{V_{\max} - V_t}{V_{\max}}, & \text{se } \frac{V_{\max} - V_t}{V_{\max}} > 0.5 \\
-0, & \text{altrimenti}
-\end{cases}$$
+$$\text{penalit\`a}_{\text{drawdown}} = \lambda_d \cdot \begin{cases} \alpha \cdot \frac{V_{\max} - V_t}{V_{\max}}, & \text{se } \frac{V_{\max} - V_t}{V_{\max}} > 0.5 \\0, & \text{altrimenti}\end{cases}$$
 
 **Penalità di transazione:**
 $$\text{penalit\`a}_{\text{transazione}} = \lambda_t \cdot 0.05 \cdot \text{prezzo}_t$$
