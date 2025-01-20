@@ -55,7 +55,17 @@ class DQNAgent:
         render_mode (Literal['step', 'episode', 'off'], opzionale): Modalità di rendering. Defaults to 'off'.
     """   
 
-    def __init__(self, state_size, action_size, batch_size, device, epsilon_decay, render_mode: Literal['step', 'episode', 'off']='off'):
+    def __init__(self, 
+                 state_size, 
+                 action_size, 
+                 batch_size, 
+                 epsilon_decay, 
+                 gamma, 
+                 lr, 
+                 device,
+                 net_hidden_dim=128,
+                 loss_fn=nn.SmoothL1Loss,
+                 render_mode: Literal['step', 'episode', 'off']='off'):
         
         self.state_size = state_size
         self.action_size = action_size
@@ -64,18 +74,18 @@ class DQNAgent:
         self.device = device
         
         # Parametri di apprendimento per la rete neurale
-        self.gamma = 0.95
+        self.gamma = gamma
         self.epsilon = 1.0  
         self.epsilon_min = 0.01  
         self.epsilon_decay = epsilon_decay
-        self.model = DQN(self.state_size, self.action_size, 128).to(self.device)
-        self.target_model = DQN(self.state_size, self.action_size, 128).to(self.device)
+        self.model = DQN(self.state_size, self.action_size, net_hidden_dim).to(self.device)
+        self.target_model = DQN(self.state_size, self.action_size, net_hidden_dim).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())  
         self.target_model.eval() 
 
         # Definizione dell'ottimizzatore e della funzione di perdita
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=1e-3)  
-        self.loss_fn = nn.SmoothL1Loss()  
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=lr)  
+        self.loss_fn = loss_fn()
 
         # Plots
         self._metrics_display = MetricPlots()
