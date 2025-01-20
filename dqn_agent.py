@@ -88,8 +88,9 @@ class DQNAgent:
         self.loss_fn = loss_fn()
 
         # Plots
-        self._metrics_display = MetricPlots()
-        self.render_mode = render_mode
+        if render_mode != "off":
+            self._metrics_display = MetricPlots()
+            self.render_mode = render_mode
 
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
         """
@@ -258,9 +259,6 @@ class DQNAgent:
             
             tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f}/{max_possible_profit:.2f} ({performance:.2f}) # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
 
-        if self.render_mode == 'off':
-            self._metrics_display.plot_metrics(**per_step_metrics)
-            self._metrics_display.plot_metrics(**per_episode_metrics, show=True)
         print("Addestramento completato.")
         return info, per_step_metrics, per_episode_metrics
 
