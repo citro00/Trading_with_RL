@@ -1,3 +1,4 @@
+import os
 import random
 from typing import Literal
 import numpy as np
@@ -310,3 +311,10 @@ class DQNAgent:
             env.render_all()
         
         return {**info, 'performance': (info['total_profit']/max_possible_profit) * 100}, history
+
+    def save_model(self, folder, suffix=None):
+        file_name = "model.pth" if not suffix else f"model_{suffix}.pth"
+        torch.save(self.model.state_dict(), f"{folder}{os.path.sep}{file_name}")
+
+    def load_model(self, path):
+        self.model.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
