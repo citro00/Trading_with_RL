@@ -6,7 +6,7 @@ class MetricPlots:
     Crea una figura con sottotrame per diversi metrici e aggiorna i grafici in tempo reale.
     """
     
-    def __init__(self, figure_num=1):
+    def __init__(self, figure_num=666):
         """
          Inizializza la figura e le sottotrame per i metrici.
          Args:
@@ -15,8 +15,8 @@ class MetricPlots:
         fig = plt.figure(figure_num, figsize=(15, 5),  layout="constrained")
         self.plots = fig.subplot_mosaic(
             [
-                ["total_profit", "total_reward", "roi"],
-                ["delta_p", "step_reward", "wallet_value"]
+                ["drawdown_mean", "total_reward", "roi"],
+                ["delta_p", "step_reward", "performance"]
             ]
         )
         
@@ -27,9 +27,9 @@ class MetricPlots:
         """
         Imposta titoli e etichette per ciascuna sottotrama.
         """
-        self.plots['total_profit'].set_title("Total Profit")
-        self.plots['total_profit'].set_xlabel("Episode")
-        self.plots['total_profit'].set_ylabel("Profit")
+        self.plots['drawdown_mean'].set_title("drawdown")
+        self.plots['drawdown_mean'].set_xlabel("Episode")
+        self.plots['drawdown_mean'].set_ylabel("drawdown")
         
         self.plots['delta_p'].set_title("delta_p")
         self.plots['delta_p'].set_xlabel("Timesteps")
@@ -47,11 +47,11 @@ class MetricPlots:
         self.plots['roi'].set_xlabel("Episode")
         self.plots['roi'].set_ylabel("ROI")
 
-        self.plots['wallet_value'].set_title("Wallet Value")
-        self.plots['wallet_value'].set_xlabel("Episode")
-        self.plots['wallet_value'].set_ylabel("Value")
+        self.plots['performance'].set_title("Performance (profit/max_profit)")
+        self.plots['performance'].set_xlabel("Episode")
+        self.plots['performance'].set_ylabel("%")
 
-    def plot_metrics(self, show=False, **kwargs):
+    def plot_metrics(self, block=False, save=False, **kwargs):
         """
         Aggiorna e visualizza i grafici dei metrici forniti.
         Args:
