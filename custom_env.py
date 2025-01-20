@@ -1,3 +1,4 @@
+from matplotlib.figure import Figure
 import numpy as np
 from gym_anytrading.envs import TradingEnv
 from gymnasium import spaces
@@ -35,12 +36,13 @@ class CustomStocksEnv(TradingEnv):
         """
         
         self.frame_bound = frame_bound
+        self._normalize = normalize
         self.initial_balance = initial_balance
         self._terminate = None
         self._step_profit = None
         self._step_reward = None
+        self._drawdown = None
         self._actual_budget = None
-        self._normalize = normalize
         self._assets_num = None
         self._done_deal = None
         self._last_trade_tick = None
@@ -115,10 +117,10 @@ class CustomStocksEnv(TradingEnv):
         transaction_cost_norm = transaction_cost * lambda_T
 
         if ((self._max_wallet_value - self._get_wallet_value()) / self._max_wallet_value) > 0.5:
-            # Se la perdita allo step attuale è più grande del 10 percento del valore massimo di drawdown setta drawdown
-            drawdown = max(0, alpha*((self._max_wallet_value - self._get_wallet_value()) / self._max_wallet_value))
+            # se la perdita supera il 50% del valore massimo del portafoglio, calcola il drawdown
+            self._drawdown = max(0, alpha*((self._max_wallet_value - self._get_wallet_value()) / self._max_wallet_value))
         else:
-            drawdown = 0
+            self._drawdown = 0
 
         h_trading_eccessivo = max(0, beta1*(self._transaction_number))
         step_inattivo = self._current_tick - self._last_trade_tick
@@ -126,7 +128,7 @@ class CustomStocksEnv(TradingEnv):
         
         # Calcolo penalità comportamentale 
         h = h_trading_eccessivo + h_inattività
-        drawdown *= lambda_D
+        drawdown = self._drawdown * lambda_D
         h *= lambda_H
         
         if self._done_deal:
@@ -427,18 +429,28 @@ class CustomStocksEnv(TradingEnv):
             step_reward   = self._step_reward,
             total_reward  = self._get_total_reward(),
             step_profit   = self._step_profit,
-            delta_p = self._delta_p,
+            delta_p       = self._delta_p,
+            drawdown      = self._drawdown,
+            actions_number = self._get_actions_number(),
             total_profit  = self._get_total_profit(),
             roi           = self._get_roi(),  
-            wallet_value = self._get_wallet_value(),
+            wallet_value  = self._get_wallet_value(),
             action        = self._last_action,
             actual_budget = self._actual_budget,
             asset         = self._current_asset,
-            max_price = np.max(self.prices),
-            min_price = np.min(self.prices),
-            df_lenght = len(self.df)
+            max_price     = np.max(self.prices),
+            min_price     = np.min(self.prices),
+            df_lenght     = len(self.df)
         )
     
+    def _get_actions_number(self):
+        """
+        Ottiene il numero di azioni eseguite durante l'episodio.
+        Returns:
+            int: Numero di azioni eseguite.
+        """
+        return self.history.get('action', []).count(Action.Buy) + self.history.get('action', []).count(Action.Sell)
+
     def _get_wallet_value(self):
         """
         Calcola il valore attuale del portafoglio.
