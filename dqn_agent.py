@@ -285,7 +285,7 @@ class DQNAgent:
         
         while not done:
             action = self.act(state)
-            print(f"Action: {action}")
+            # print(f"Action: {action}")
             next_state, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             next_prices = next_state[:-1]
