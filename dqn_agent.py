@@ -65,9 +65,11 @@ class DQNAgent:
                  device,
                  net_hidden_dim=128,
                  loss_fn=nn.SmoothL1Loss,
+                 use_profit=True,
                  render_mode: Literal['step', 'episode', 'off']='off'):
         
-        self.state_size = state_size
+        self._use_profit = use_profit
+        self.state_size = state_size if self._use_profit else state_size-1
         self.action_size = action_size
         self.batch_size = batch_size
         self.memory = deque(maxlen=10000) 
@@ -203,7 +205,8 @@ class DQNAgent:
             prices = state[:-1]
             profit = state[-1]
             state = ut.state_formatter(prices)
-            state = np.concatenate((state, [profit]), axis=0)
+            if self._use_profit:
+                state = np.concatenate((state, [profit]), axis=0)
             done = False
          
             while not done:
@@ -214,7 +217,8 @@ class DQNAgent:
                 next_prices = next_state[:-1]
                 next_profit = next_state[-1]
                 next_state = ut.state_formatter(next_prices)
-                next_state = np.concatenate((next_state, [next_profit]), axis=0)
+                if self._use_profit:
+                    next_state = np.concatenate((next_state, [next_profit]), axis=0)
                 self.remember(state, action, reward, next_state, done)
                 state = next_state
                 loss = self.replay()
@@ -278,7 +282,8 @@ class DQNAgent:
         prices = state[:-1]
         profit = state[-1]
         state = ut.state_formatter(prices)
-        state = np.concatenate((state, [profit]), axis=0)
+        if self._use_profit:
+            state = np.concatenate((state, [profit]), axis=0)
         done = False
         
         while not done:
@@ -288,7 +293,8 @@ class DQNAgent:
             next_prices = next_state[:-1]
             next_profit = next_state[-1]
             next_state = ut.state_formatter(next_prices)
-            next_state = np.concatenate((next_state, [next_profit]), axis=0)
+            if self._use_profit:
+                next_state = np.concatenate((next_state, [next_profit]), axis=0)
             state = next_state
 
             if self.render_mode == 'step':

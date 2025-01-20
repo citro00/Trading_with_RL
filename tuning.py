@@ -18,7 +18,8 @@ PARAMETERS = {
     "gamma": [0.95],
     "lr": [1e-3],
     # "loss_fn": [nn.SmoothL1Loss, nn.MSELoss, nn.HuberLoss],
-    "loss_fn": [nn.SmoothL1Loss, nn.MSELoss],
+    "loss_fn": [nn.MSELoss],
+    "use_profit": [True, False],
     "net_hidden_dim": [64]
 }
 
