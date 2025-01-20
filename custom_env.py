@@ -327,9 +327,9 @@ class CustomStocksEnv(TradingEnv):
                 action (Action): L'azione eseguita.
             """  
             if action == Action.Sell:
-                plt.plot(tick, self.prices[tick], 'v', markersize=8, color='r', label='Sell Signal')
+                plt.plot(tick, self.prices[tick], 'v', markersize=8, color='g', label='Sell Signal')
             elif action == Action.Buy:
-                plt.plot(tick, self.prices[tick], '^', markersize=8, color='g', label='Buy Signal')
+                plt.plot(tick, self.prices[tick], '^', markersize=8, color='r', label='Buy Signal')
             elif action == Action.Hold and self.metadata['plot_holds']:
                 plt.plot(tick, self.prices[tick], 'o', markersize=4, color='b', label='Hold Signal')
 
@@ -339,13 +339,18 @@ class CustomStocksEnv(TradingEnv):
             self._first_rendering = False
             fig.clear()
             plt.plot(self.prices, color='k', lw=1.1, label='Price')
+            plt.plot(0, self.prices[0], '^', markersize=1, color='r', label='Buy Signal')
+            plt.plot(0, self.prices[0], 'v', markersize=1, color='g', label='Sell Signal')
+            if self.metadata['plot_holds']:
+                plt.plot(0, self.prices[0], 'o', markersize=1, color='b', label='Hold Signal')
+            plt.legend()
 
         if self._last_action:
             _plot_action(*self._last_action)
 
         plt.suptitle(
             "Total Reward: %.6f" % self._get_total_reward() + ' ~ ' +
-            "Total Profit: %.6f" % self._get_total_profit() + ' ~ ' +
+            "Total Profit: %.6f" % self._get_total_profit() + '\n' +
             "Wallet value: %.6f" % self._get_wallet_value() + ' ~ ' +
             "ROI: %.6f" % self._get_roi() + ' ~ ' +
             "Asset: %s" % self._current_asset
@@ -371,8 +376,8 @@ class CustomStocksEnv(TradingEnv):
         hold_signals = [tick for (tick, action) in actions_history if action == Action.Hold]
 
         plt.plot(self.prices, color='k', lw=1.1, label='Price')
-        plt.plot(buy_signals, self.prices[buy_signals], '^', markersize=8, color='g', label='Buy Signal')
-        plt.plot(sell_signals, self.prices[sell_signals], 'v', markersize=8, color='r', label='Sell Signal')
+        plt.plot(buy_signals, self.prices[buy_signals], '^', markersize=8, color='r', label='Buy Signal')
+        plt.plot(sell_signals, self.prices[sell_signals], 'v', markersize=8, color='g', label='Sell Signal')
         if self.metadata['plot_holds']:
             plt.plot(hold_signals, self.prices[hold_signals], 'o', markersize=4, color='b', label='Hold Signal')
 
@@ -381,7 +386,7 @@ class CustomStocksEnv(TradingEnv):
         
         plt.suptitle(
             "Total Reward: %.6f" % self._get_total_reward() + ' ~ ' +
-            "Total Profit: %.6f" % self._get_total_profit() + ' ~ ' +
+            "Total Profit: %.6f" % self._get_total_profit() + '\n' +
             "Wallet value: %.6f" % self._get_wallet_value() + ' ~ ' +
             "ROI: %.6f" % self._get_roi() + ' ~ ' +
             "Asset: %s" % self._current_asset
@@ -393,6 +398,45 @@ class CustomStocksEnv(TradingEnv):
         pause_time = (1 / self.metadata['render_fps'])
         assert pause_time > 0., "High FPS! Try to reduce the 'render_fps' value."
         plt.pause(pause_time)
+
+
+    def render_figure(self, title=None) -> Figure:
+        """
+        Renderizza tutte le azioni eseguite durante l'episodio in una figura.
+        Args:
+            title (str, opzionale): Titolo del grafico. Defaults to None.
+        """
+        actions_history = [act for act in self.history.get('action', []) if act is not None]
+        fig = plt.figure(num=self.metadata.get('figure_num', 1), figsize=(16,9))
+        fig.clear()
+        ax = fig.gca()
+
+        sell_signals = [tick for (tick, action) in actions_history if action == Action.Sell]
+        buy_signals = [tick for (tick, action) in actions_history if action == Action.Buy]
+        hold_signals = [tick for (tick, action) in actions_history if action == Action.Hold]
+
+        ax.plot(self.prices, color='k', lw=1.1, label='Price')
+        ax.plot(buy_signals, self.prices[buy_signals], '^', markersize=8, color='r', label='Buy Signal')
+        ax.plot(sell_signals, self.prices[sell_signals], 'v', markersize=8, color='g', label='Sell Signal')
+        if self.metadata['plot_holds']:
+            ax.plot(hold_signals, self.prices[hold_signals], 'o', markersize=4, color='b', label='Hold Signal')
+
+        if title:
+            ax.set_title(title)
+        
+        plt.suptitle(
+            "Total Reward: %.6f" % self._get_total_reward() + ' ~ ' +
+            "Total Profit: %.6f" % self._get_total_profit() + '\n' +
+            "Wallet value: %.6f" % self._get_wallet_value() + ' ~ ' +
+            "ROI: %.6f" % self._get_roi() + ' ~ ' +
+            "Asset: %s" % self._current_asset
+        )
+
+        ax.set_xlabel('Tick')
+        ax.set_ylabel('Price')
+        ax.legend()
+
+        return fig
 
     def _get_observation(self):
         """
