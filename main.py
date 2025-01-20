@@ -27,7 +27,7 @@ def setup_environment(symbols, start_date, end_date, window_size, initial_balanc
     return env
 
 
-def select_agent(model, state_size, action_size, batch_size, device, initial_balance, epsilon_decay):
+def select_agent(model, state_size, action_size, batch_size, device, epsilon_decay, gamma, lr):
 
     if model == "DQN":
         agent = DQNAgent(
@@ -35,7 +35,9 @@ def select_agent(model, state_size, action_size, batch_size, device, initial_bal
             action_size=action_size,
             batch_size=batch_size,
             device=device,
-            epsilon_decay=epsilon_decay
+            epsilon_decay=epsilon_decay,
+            gamma=gamma,
+            lr=lr
         )
     elif model == "QL":
         agent = QLAgent(
@@ -102,8 +104,9 @@ def main():
         action_size=action_size,
         batch_size=batch_size,
         device=device,
-        initial_balance=initial_balance,
-        epsilon_decay = epsilon_decay
+        epsilon_decay = epsilon_decay,
+        gamma=0.95,
+        lr=1e-3
     )
     
     # Settiamo la render mode: "episode" durante il training
@@ -126,8 +129,9 @@ def main():
     )
 
     print("Inizio valutazione dell'agente.")
+    print("Max possible profit: ", eval_env.max_possible_profit())
     agent.set_render_mode("step")
-    total_profit, total_reward, info = agent.evaluate_agent(eval_env)
+    info, history = agent.evaluate_agent(eval_env)
 
     # Mostra il grafico (o i grafici) generati
     plt.show(block=True)  # Aspetta la chiusura della finestra del grafico
