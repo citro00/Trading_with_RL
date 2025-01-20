@@ -61,8 +61,8 @@ def rolling_average(data, window_size):
     return np.convolve(data, np.ones(window_size), mode="valid") / window_size
 
 def save_train_metrics(trains, labels, save_path):
-    metrics = ['total_reward', 'roi', 'total_profit', 'deal_actions_num', 'deal_errors_num', 'drawdown_mean']
-    rolling_length = 2
+    metrics = ['total_reward', 'roi', 'total_profit', 'deal_actions_num', 'deal_errors_num', 'drawdown_mean', 'performance']
+    rolling_length = 50
 
     for metric in metrics:
         fig = plt.figure(figsize=(15,10))
@@ -102,7 +102,7 @@ def save_eval_metrics(evals, labels, save_path):
 
         # Salva il plot
         ax.set_title(metric.replace("_", " ").title())
-        ax.set_xlabel("Episodes")
+        ax.set_xlabel("Steps")
         ax.set_ylabel(metric.replace("_", " ").title())
         ax.legend()
         fig.savefig(save_path/f"{metric}.png")
@@ -113,7 +113,6 @@ def main():
     # argparser.add_argument("--model", type=str, choices=["DQN", "QL"], default="DQN", help="Modello da utilizzare (DQN/QL)")
     argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
     argparser.add_argument("--initial-balance", type=int, default=10000, help="Saldo iniziale")
-    argparser.add_argument("--epsilon-decay", type=float, default=0.95, help="Fattore di decadimento del parametro epsilon")
     argparser.add_argument("--show-plots", help="Mostra i plot generati", action="store_true")
     args = argparser.parse_args()
     
