@@ -11,7 +11,6 @@ from tqdm import tqdm
 from plots import MetricPlots
 import utils as ut
 from gym_anytrading.envs import TradingEnv
-import pandas as pd
 
 
 class DQN(nn.Module):
@@ -299,19 +298,16 @@ class DQNAgent:
             if self.render_mode == 'step':
                 env.render()
 
-
-        history = pd.DataFrame(env.history)
-
         print("___ Valutazione ___")
-        print(f"Total Profit: {info['total_profit']:.2f} - Mean: {np.mean(history['total_profit']):.2f} - Std: {np.std(history['total_profit']):.2f}")
-        print(f"Wallet value: {info['wallet_value']:.2f} - Mean: {np.mean(history['wallet_value']):.2f} - Std: {np.std(history['wallet_value']):.2f}")
-        print(f"Total Reward: {info['total_reward']:.2f} - Mean: {np.mean(history['total_reward']):.2f} - Std: {np.std(history['total_reward']):.2f}")
-        print(f"ROI: {info['roi']:.2f}% - Mean: {np.mean(history['roi']):.2f}% - Std: {np.std(history['roi']):.2f}%")
+        print(f"Total Profit: {info['total_profit']:.2f} - Mean: {np.mean(env.history['total_profit']):.2f} - Std: {np.std(env.history['total_profit']):.2f}")
+        print(f"Wallet value: {info['wallet_value']:.2f} - Mean: {np.mean(env.history['wallet_value']):.2f} - Std: {np.std(env.history['wallet_value']):.2f}")
+        print(f"Total Reward: {info['total_reward']:.2f} - Mean: {np.mean(env.history['total_reward']):.2f} - Std: {np.std(env.history['total_reward']):.2f}")
+        print(f"ROI: {info['roi']:.2f}% - Mean: {np.mean(env.history['roi']):.2f}% - Std: {np.std(env.history['roi']):.2f}%")
 
         if self.render_mode == 'episode':
             env.render_all()
         
-        return {**info, 'performance': (info['total_profit']/max_possible_profit) * 100}, history
+        return {**info, 'performance': (info['total_profit']/max_possible_profit) * 100}, env.history
 
     def save_model(self, folder, suffix=None):
         file_name = "model.pth" if not suffix else f"model_{suffix}.pth"
