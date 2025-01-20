@@ -62,15 +62,16 @@ class MetricPlots:
             self.init_plots()
         
         for metric, value in kwargs.items():
-            self.plots[metric].clear()
             if metric == 'step_reward':
+                self.plots[metric].clear()
                 self.plots[metric].scatter(range(len(value)), value, s=2**2)
-            else:
+            elif metric in self.plots.keys():
+                self.plots[metric].clear()
                 self.plots[metric].plot(value)
 
         self._set_plot_labels()
         plt.draw()
         plt.pause(0.001)
 
-        if show:
+        if block:
             plt.show(block=True)
