@@ -470,30 +470,39 @@ class CustomStocksEnv(TradingEnv):
             dict: Dizionario contenente vari parametri dello stato.
         """
         return dict(
-            step_reward   = self._step_reward,
-            total_reward  = self._get_total_reward(),
-            step_profit   = self._step_profit,
-            delta_p       = self._delta_p,
-            drawdown      = self._drawdown,
-            actions_number = self._get_actions_number(),
-            total_profit  = self._get_total_profit(),
-            roi           = self._get_roi(),  
-            wallet_value  = self._get_wallet_value(),
-            action        = self._last_action,
-            actual_budget = self._actual_budget,
-            asset         = self._current_asset,
-            max_price     = np.max(self.prices),
-            min_price     = np.min(self.prices),
-            df_lenght     = len(self.df)
+            step_reward       = self._step_reward,
+            total_reward      = self._get_total_reward(),
+            delta_p           = self._delta_p,
+            drawdown          = self._drawdown,
+            deal_actions_num  = self._get_deal_actions_number(),
+            deal_errors_num   = self._get_deal_errors(),
+            total_profit      = self._get_total_profit(),
+            roi               = self._get_roi(), 
+            wallet_value      = self._get_wallet_value(),
+            action            = self._last_action,
+            actual_budget     = self._actual_budget,
+            asset             = self._current_asset,
+            max_price         = np.max(self.prices),
+            min_price         = np.min(self.prices),
+            df_lenght         = len(self.df)
         )
     
-    def _get_actions_number(self):
+    def _get_deal_errors(self):
         """
-        Ottiene il numero di azioni eseguite durante l'episodio.
+        Ottiene il numero di azioni non ammesse eseguite durante l'episodio
+        Returns:
+            int: Numero di azioni non ammesse
+        """
+        return self.history.get('action', []).count(None)
+    
+    def _get_deal_actions_number(self):
+        """
+        Ottiene il numero di azioni buy/sell eseguite durante l'episodio.
         Returns:
             int: Numero di azioni eseguite.
         """
-        return self.history.get('action', []).count(Action.Buy) + self.history.get('action', []).count(Action.Sell)
+        actions = [action[1] for action in self.history.get('action', []) if action]
+        return actions.count(Action.Buy) + actions.count(Action.Sell)
 
     def _get_wallet_value(self):
         """
