@@ -188,7 +188,8 @@ class DQNAgent:
             'performance': [],
             'loss': [],
             'epsilon': [],
-            'actions_number': [],
+            'deal_actions_num': [],
+            'deal_errors_num': [],
             'drawdown_mean': [],
         }
 
