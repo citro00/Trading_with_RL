@@ -1,4 +1,5 @@
 import argparse
+import numpy as np
 import pandas as pd
 import torch
 import matplotlib.pyplot as plt
@@ -55,7 +56,7 @@ def main():
     argparser.add_argument("--model", type=str, choices=["DQN", "QL"], default="DQN", help="Modello da utilizzare (DQN/QL)")
     argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
     argparser.add_argument("--initial-balance", type=int, default=10000, help="Saldo iniziale")
-    argparser.add_argument("--epsilon-decay", type=float, default=0.95, help="Fattore di decadimento del parametro epsylon")
+    argparser.add_argument("--epsilon-decay", type=float, default=0.95, help="Fattore di decadimento del parametro epsilon")
 
     args = argparser.parse_args()
 
@@ -112,9 +113,10 @@ def main():
     # Settiamo la render mode: "episode" durante il training
     agent.set_render_mode("episode")
     
-    print("Avvio del training...")
+
+    print(f"Inizio addestramento per {episodes} episodi...")
     agent.train_agent(env, episodes, seed=True)
-    print("Training completato.")
+    print("Addestramento completato.")
 
     # Passiamo a valutazione con un nuovo dataset
     eval_symbols = ["MRVL"]
@@ -132,6 +134,12 @@ def main():
     print("Max possible profit: ", eval_env.max_possible_profit())
     agent.set_render_mode("step")
     info, history = agent.evaluate_agent(eval_env)
+
+    print("___ Valutazione ___")
+    print(f"Total Profit: {info['total_profit']:.2f} - Mean: {np.mean(history['total_profit']):.2f} - Std: {np.std(history['total_profit']):.2f}")
+    print(f"Wallet value: {info['wallet_value']:.2f} - Mean: {np.mean(history['wallet_value']):.2f} - Std: {np.std(history['wallet_value']):.2f}")
+    print(f"Total Reward: {info['total_reward']:.2f} - Mean: {np.mean(history['total_reward']):.2f} - Std: {np.std(history['total_reward']):.2f}")
+    print(f"ROI: {info['roi']:.2f}% - Mean: {np.mean(history['roi']):.2f}% - Std: {np.std(history['roi']):.2f}%")
 
     # Mostra il grafico (o i grafici) generati
     plt.show(block=True)  # Aspetta la chiusura della finestra del grafico

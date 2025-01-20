@@ -88,9 +88,8 @@ class DQNAgent:
         self.loss_fn = loss_fn()
 
         # Plots
-        if render_mode != "off":
-            self._metrics_display = MetricPlots()
-            self.render_mode = render_mode
+        self.render_mode = render_mode
+        self._metrics_display = MetricPlots()
 
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
         """
@@ -192,7 +191,6 @@ class DQNAgent:
             'drawdown_mean': [],
         }
 
-        print(f"Inizio addestramento per {episodes} episodi.")
         for episode in tqdm(range(1, episodes + 1), desc="Training Progress", unit="episode"):
             state, info = env.reset(seed=episode if seed else None)
             max_possible_profit = env.max_possible_profit()
@@ -260,7 +258,6 @@ class DQNAgent:
             
             tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f}/{max_possible_profit:.2f} ({performance:.2f}) # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
 
-        print("Addestramento completato.")
         return info, per_step_metrics, per_episode_metrics
 
     def evaluate_agent(self, env:TradingEnv):
@@ -286,7 +283,6 @@ class DQNAgent:
         
         while not done:
             action = self.act(state)
-            # print(f"Action: {action}")
             next_state, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             next_prices = next_state[:-1]
@@ -297,12 +293,6 @@ class DQNAgent:
 
             if self.render_mode == 'step':
                 env.render()
-
-        print("___ Valutazione ___")
-        print(f"Total Profit: {info['total_profit']:.2f} - Mean: {np.mean(env.history['total_profit']):.2f} - Std: {np.std(env.history['total_profit']):.2f}")
-        print(f"Wallet value: {info['wallet_value']:.2f} - Mean: {np.mean(env.history['wallet_value']):.2f} - Std: {np.std(env.history['wallet_value']):.2f}")
-        print(f"Total Reward: {info['total_reward']:.2f} - Mean: {np.mean(env.history['total_reward']):.2f} - Std: {np.std(env.history['total_reward']):.2f}")
-        print(f"ROI: {info['roi']:.2f}% - Mean: {np.mean(env.history['roi']):.2f}% - Std: {np.std(env.history['roi']):.2f}%")
 
         if self.render_mode == 'episode':
             env.render_all()
