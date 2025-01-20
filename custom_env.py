@@ -492,3 +492,40 @@ class CustomStocksEnv(TradingEnv):
             float: Nuovo valore della ricompensa totale.
         """
         return self._total_reward + step_reward
+    
+    def max_possible_profit(self):
+        """
+        Calcola il profitto massimo possibile ottenibile dall'ambiente, secondo il budget iniziale.
+        Returns:
+            tuple: Contiene il profitto massimo e il ROI massimo rispetto al budget iniziale.
+        """
+        from gym_anytrading.envs import Positions
+
+        current_tick = self._start_tick
+        last_trade_tick = current_tick - 1
+        profit = 0
+        budget = self.initial_balance
+    
+        while current_tick <= self._end_tick:
+            position = None
+            if self.prices[current_tick] < self.prices[current_tick - 1]:
+                while (current_tick <= self._end_tick and
+                       self.prices[current_tick] < self.prices[current_tick - 1]):
+                    current_tick += 1
+                position = Positions.Short
+            else:
+                while (current_tick <= self._end_tick and
+                       self.prices[current_tick] >= self.prices[current_tick - 1]):
+                    current_tick += 1
+                position = Positions.Long
+
+            if position == Positions.Long:
+                current_price = self.prices[current_tick - 1]
+                last_trade_price = self.prices[last_trade_tick]
+                shares = budget / last_trade_price
+                budget = shares * current_price
+                profit += shares * (current_price - last_trade_price)
+
+            last_trade_tick = current_tick - 1
+
+        return profit
