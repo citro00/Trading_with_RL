@@ -176,18 +176,25 @@ class DQNAgent:
         per_step_metrics = {
             'step_reward': [],
             'delta_p': [],
+            'drawdown': [],
         }
         
         per_episode_metrics = {
             'roi': [],
             'total_reward': [],
             'total_profit': [],
-            'wallet_value': [],
+            'performance': [],
+            'loss': [],
+            'epsilon': [],
+            'actions_number': [],
+            'drawdown_mean': [],
         }
 
         print(f"Inizio addestramento per {episodes} episodi.")
         for episode in tqdm(range(1, episodes + 1), desc="Training Progress", unit="episode"):
             state, info = env.reset(seed=episode if seed else None)
+            max_possible_profit = env.max_possible_profit()
+
             for metric in per_step_metrics.keys():
                 per_step_metrics[metric] = []
 
@@ -230,23 +237,32 @@ class DQNAgent:
             if self.render_mode == 'episode':
                 env.render_all(f"Episode {episode}")
 
+            # Salva le metriche per l'episodio corrente
             average_loss = total_loss / loss_count if loss_count > 0 else 0
             for metric in per_episode_metrics.keys():
-                per_episode_metrics[metric].append(info[metric])
+                if metric in info.keys():
+                    per_episode_metrics[metric].append(info[metric])
+            per_episode_metrics['performance'].append((info['total_profit'] / max_possible_profit) * 100)
+            per_episode_metrics['loss'].append(average_loss)
+            per_episode_metrics['epsilon'] = self.epsilon
+            per_episode_metrics['drawdown_mean'].append(np.mean(per_step_metrics['drawdown']))
+
             if self.render_mode == 'episode':
                 self._metrics_display.plot_metrics(**per_step_metrics)
                 self._metrics_display.plot_metrics(**per_episode_metrics)
 
             total_profit = info['total_profit']
             wallet_value = info['wallet_value']
+            performance = (total_profit / max_possible_profit) * 100
             roi = info['roi']
             
-            tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
+            tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f}/{max_possible_profit:.2f} ({performance:.2f}) # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
 
         if self.render_mode == 'off':
             self._metrics_display.plot_metrics(**per_step_metrics)
             self._metrics_display.plot_metrics(**per_episode_metrics, show=True)
         print("Addestramento completato.")
+        return info, per_step_metrics, per_episode_metrics
 
     def evaluate_agent(self, env:TradingEnv):
         """
@@ -260,6 +276,9 @@ class DQNAgent:
         """
         self.epsilon = 0  # Disattiva esplorazione durante la valutazione
         state, info = env.reset()
+        max_possible_profit = env.max_possible_profit(
+
+        )
         prices = state[:-1]
         profit = state[-1]
         state = ut.state_formatter(prices)
@@ -282,8 +301,7 @@ class DQNAgent:
 
 
         history = pd.DataFrame(env.history)
-        history.to_csv("csv/history.csv", index=False)  # Salva
-        
+
         print("___ Valutazione ___")
         print(f"Total Profit: {info['total_profit']:.2f} - Mean: {np.mean(history['total_profit']):.2f} - Std: {np.std(history['total_profit']):.2f}")
         print(f"Wallet value: {info['wallet_value']:.2f} - Mean: {np.mean(history['wallet_value']):.2f} - Std: {np.std(history['wallet_value']):.2f}")
@@ -293,4 +311,4 @@ class DQNAgent:
         if self.render_mode == 'episode':
             env.render_all()
         
-        return info['total_profit'], info['total_reward'], info
+        return {**info, 'performance': (info['total_profit']/max_possible_profit) * 100}, history
