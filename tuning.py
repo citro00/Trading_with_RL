@@ -114,6 +114,7 @@ def main():
     argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
     argparser.add_argument("--initial-balance", type=int, default=10000, help="Saldo iniziale")
     argparser.add_argument("--show-plots", help="Mostra i plot generati", action="store_true")
+    argparser.add_argument("--output-folder", type=str, default=None, help="Cartella di output per i risultati")
     args = argparser.parse_args()
     
     # symbols = ["IBM", "NVDA", "AAPL", "GOOGL", "AMZN", "MSFT", "INTC", "ORCL", "CSCO", "ADBE", "QCOM", "META"]
@@ -123,8 +124,9 @@ def main():
     training_episodes = args.episodes
     testing_parameters = [k for k, v in PARAMETERS.items() if len(v) > 1]
 
-    # Crea il percorso per il salvataggio dei risultati    
-    folder = Path(f"./tuning/{'-'.join(testing_parameters)}")
+    # Crea il percorso per il salvataggio dei risultati   
+    output_folder = args.output_folder or '-'.join(testing_parameters)
+    folder = Path(f"./tuning/{output_folder}")
     training_folder = (folder/'training')
     models_folder = (folder/'models')
     testing_folder = (folder/'testing')
