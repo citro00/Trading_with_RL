@@ -56,6 +56,7 @@ def main():
     argparser.add_argument("--model", type=str, choices=["DQN", "QL"], default="DQN", help="Modello da utilizzare (DQN/QL)")
     argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
     argparser.add_argument("--initial-balance", type=int, default=10000, help="Saldo iniziale")
+    argparser.add_argument("--seed", type=int, default=None, help="Seed per la riproducibilità")
     argparser.add_argument("--epsilon-decay", type=float, default=0.95, help="Fattore di decadimento del parametro epsilon")
 
     args = argparser.parse_args()
@@ -115,7 +116,7 @@ def main():
     
 
     print(f"Inizio addestramento per {episodes} episodi...")
-    agent.train_agent(env, episodes, seed=True)
+    agent.train_agent(env, episodes, seed=args.seed)
     print("Addestramento completato.")
 
     # Passiamo a valutazione con un nuovo dataset
@@ -133,7 +134,7 @@ def main():
     print("Inizio valutazione dell'agente.")
     print("Max possible profit: ", eval_env.max_possible_profit())
     agent.set_render_mode("step")
-    info, history = agent.evaluate_agent(eval_env)
+    info, history = agent.evaluate_agent(eval_env, seed=args.seed) 
 
     print("___ Valutazione ___")
     print(f"Total Profit: {info['total_profit']:.2f} - Mean: {np.mean(history['total_profit']):.2f} - Std: {np.std(history['total_profit']):.2f}")

@@ -48,7 +48,7 @@ class CustomStocksEnv(TradingEnv):
         self._last_trade_tick = None
         self._last_action: tuple[int, Action] = None
         self.df_dict = df        
-        self._current_asset = random.choice(list(self.df_dict.keys()))
+        self._current_asset = self.np_random.choice(list(self.df_dict.keys()))
         self._transaction_number = None
         self._delta_p = None
         self._last_assets_num = None
@@ -274,9 +274,9 @@ class CustomStocksEnv(TradingEnv):
         
     def _seed(self, seed=None):
         """
-        Imposta il seme per la generazione casuale.
+        Imposta il seed per la generazione casuale.
         Args:
-            seed (int, opzionale): Il seme da impostare. Defaults to None.
+            seed (int, opzionale): Il seed da impostare. Defaults to None.
         """
         np.random.seed(seed)
         random.seed(seed)
@@ -286,7 +286,7 @@ class CustomStocksEnv(TradingEnv):
         """
         Resetta l'ambiente all'inizio di un nuovo episodio.
         Args:
-            seed (int, opzionale): Il seme per la generazione casuale. Defaults to None.
+            seed (int, opzionale): Il seed per la generazione casuale. Defaults to None.
         Returns:
             tuple: Contiene l'osservazione iniziale e informazioni aggiuntive.
         """
@@ -305,9 +305,10 @@ class CustomStocksEnv(TradingEnv):
         self._truncated = False 
         self._terminate = False
         obs, info = super().reset(seed=seed)
-        self._total_profit = 0.
         self._seed(seed)
-        self._current_asset = random.choice(list(self.df_dict.keys()))
+
+        self._total_profit = 0.
+        self._current_asset = self.np_random.choice(list(self.df_dict.keys()))
         self.df = self.df_dict[self._current_asset]
         self.prices, self.signal_features = self._process_data()
         

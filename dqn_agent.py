@@ -101,7 +101,21 @@ class DQNAgent:
         """
         self.render_mode = render_mode
 
-  
+    def seed_everything(self, seed):
+        """
+        Imposta i seed per la riproducibilità.
+        Args:
+            seed (int): Seed per la riproducibilità.
+        """
+
+        random.seed(seed)
+        np.random.seed(seed)
+        os.environ['PYTHONHASHSEED'] = str(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+
+
     def decay_epsilon(self):
         """
         Riduce l'epsilon per diminuire l'esplorazione nel tempo.
@@ -167,7 +181,7 @@ class DQNAgent:
 
         return loss.item()
 
-    def train_agent(self, env:TradingEnv, episodes, seed=False):
+    def train_agent(self, env:TradingEnv, episodes, seed=None):
         """
         Addestra l'agente attraverso interazioni con l'ambiente.
         Args:
@@ -193,8 +207,11 @@ class DQNAgent:
             'drawdown_mean': [],
         }
 
+        if seed is not None:
+            self.seed_everything(seed)
+
         for episode in tqdm(range(1, episodes + 1), desc="Training Progress", unit="episode"):
-            state, info = env.reset(seed=episode if seed else None)
+            state, info = env.reset(seed=seed+episode if seed else None)
             max_possible_profit = env.max_possible_profit()
 
             for metric in per_step_metrics.keys():
@@ -264,21 +281,24 @@ class DQNAgent:
 
         return info, per_step_metrics, per_episode_metrics
 
-    def evaluate_agent(self, env:TradingEnv):
+    def evaluate_agent(self, env:TradingEnv, seed=None):
         """
         Valuta le prestazioni dell'agente sull'ambiente.
 
         Args:
             env (TradingEnv): Ambiente di trading.
+            seed (int, opzionale): Seed per la riproducibilità. Defaults to None.
 
         Returns:
             tuple: Contiene il profitto totale, la ricompensa totale e altre informazioni.
         """
-        self.epsilon = 0  # Disattiva esplorazione durante la valutazione
-        state, info = env.reset()
-        max_possible_profit = env.max_possible_profit(
+        if seed is not None:
+            self.seed_everything(seed)
 
-        )
+        self.epsilon = 0  # Disattiva esplorazione durante la valutazione
+        state, info = env.reset(seed=seed if seed else None)
+        max_possible_profit = env.max_possible_profit()
+
         prices = state[:-1]
         profit = state[-1]
         state = ut.state_formatter(prices)
