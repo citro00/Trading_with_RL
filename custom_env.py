@@ -299,9 +299,11 @@ class CustomStocksEnv(TradingEnv):
         self._last_trade_tick = 0
         self._transaction_number = 0
         self._delta_p = 0
+        self._drawdown = 0
         self._last_assets_num = 0
         self._max_wallet_value = 0
         self._min_wallet_value = 0
+        self._done_deal = False
         self._truncated = False 
         self._terminate = False
         obs, info = super().reset(seed=seed)
