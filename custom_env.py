@@ -134,7 +134,7 @@ class CustomStocksEnv(TradingEnv):
         if self._done_deal:
             reward = delta_p_normalized - transaction_cost_norm - drawdown - h
         else:
-            reward = - 0.5
+            reward = - 0.3
             
         return reward
         """
