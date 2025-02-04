@@ -22,11 +22,18 @@ class DQN(nn.Module):
         n_actions (int): Numero di azioni possibili.
         hidden_layer_dim (int, opzionale): Dimensione del layer nascosto. Defaults to 128.
     """
-    def __init__(self, n_observation, n_actions, hidden_layer_dim=128):
+    def __init__(self, n_observation, n_actions, hidden_layer_dim=128, num_hidden_layers=1):
         super(DQN, self).__init__()
-        self.layer1 = nn.Linear(n_observation, hidden_layer_dim)
-        self.layer2 = nn.Linear(hidden_layer_dim, hidden_layer_dim)
-        self.layer3 = nn.Linear(hidden_layer_dim, n_actions)
+        layers = []
+        layers.append(nn.Linear(n_observation, hidden_layer_dim))
+        for i in range(1, num_hidden_layers + 1):
+            input_dim = hidden_layer_dim ##// 2**(i-1)
+            output_dim = hidden_layer_dim ##// 2**i
+            layers.append(nn.Linear(input_dim, output_dim))
+        
+        layers.append(nn.Linear(output_dim, n_actions))
+
+        self.layers = nn.ModuleList(layers)
 
     def forward(self, x):
         """
@@ -36,10 +43,9 @@ class DQN(nn.Module):
         Returns:
             torch.Tensor: Output delle azioni Q-value.
         """
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        return self.layer3(x)
-    
+        for layer in self.layers[:-1]:
+            x = F.relu(layer(x))
+        return self.layers[-1](x)
     
 class DQNAgent:
     """
@@ -63,7 +69,8 @@ class DQNAgent:
                  gamma, 
                  lr, 
                  device,
-                 net_hidden_dim=128,
+                 net_hidden_dim=320,
+                 net_hidden_layers=2,
                  loss_fn=nn.SmoothL1Loss,
                  use_profit=True,
                  render_mode: Literal['step', 'episode', 'off']='off'):
@@ -80,8 +87,8 @@ class DQNAgent:
         self.epsilon = 1.0  
         self.epsilon_min = 0.01  
         self.epsilon_decay = epsilon_decay
-        self.model = DQN(self.state_size, self.action_size, net_hidden_dim).to(self.device)
-        self.target_model = DQN(self.state_size, self.action_size, net_hidden_dim).to(self.device)
+        self.model = DQN(self.state_size, self.action_size, net_hidden_dim, net_hidden_layers).to(self.device)
+        self.target_model = DQN(self.state_size, self.action_size, net_hidden_dim, net_hidden_layers).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())  
         self.target_model.eval() 
 
@@ -277,7 +284,7 @@ class DQNAgent:
             performance = (total_profit / max_possible_profit) * 100
             roi = info['roi']
             
-            tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f}/{max_possible_profit:.2f} ({performance:.2f}) # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
+            tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f}/{max_possible_profit:.2f} ({performance:.4f}) # Wallet value: {wallet_value:.2f} # Average Loss: {average_loss:.4f} # Epsilon: {self.epsilon:.4f}")
 
         return info, per_step_metrics, per_episode_metrics
 
