@@ -163,4 +163,3 @@ cython_debug/
 
 # Local repo folders
 csv/
-tuning/

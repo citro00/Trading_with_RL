@@ -1,0 +1,8 @@
+batch_size: 128
+epsilon_decay: 0.99
+gamma: 0.9
+lr: 0.001
+loss_fn: <class 'torch.nn.modules.loss.SmoothL1Loss'>
+use_profit: True
+net_hidden_dim: 128
+net_hidden_layers: [1, 2, 3]

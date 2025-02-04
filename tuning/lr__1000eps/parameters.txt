@@ -1,0 +1,9 @@
+Episodes: 1000
+batch_size: 128
+epsilon_decay: 0.95
+gamma: 0.9
+lr: [0.01, 0.001, 0.005, 0.0005]
+loss_fn: <class 'torch.nn.modules.loss.SmoothL1Loss'>
+use_profit: True
+net_hidden_dim: 320
+net_hidden_layers: 2
