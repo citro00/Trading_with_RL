@@ -43,7 +43,6 @@ def select_agent(model, state_size, action_size, batch_size, device, epsilon_dec
     elif model == "QL":
         agent = QLAgent(
             action_size=action_size,
-
         )
     else:
         raise ValueError(f"Modello '{model}' non supportato.")

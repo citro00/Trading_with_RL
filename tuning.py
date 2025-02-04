@@ -10,17 +10,22 @@ from dqn_agent import DQNAgent
 import utils as ut
 import torch
 import torch.nn as nn
+import json
 
 # Parametri per il fine-tuning
 PARAMETERS = {
     "batch_size": [128],
-    "epsilon_decay": [0.95],
-    "gamma": [0.95],
-    "lr": [1e-3],
-    # "loss_fn": [nn.SmoothL1Loss, nn.MSELoss, nn.HuberLoss],
-    "loss_fn": [nn.MSELoss],
-    "use_profit": [True, False],
-    "net_hidden_dim": [64]
+    # "epsilon_decay": [0.9, 0.95, 0.99, 0.995, 0.999],
+    "epsilon_decay": [0.99],
+    # "gamma": [0.9, 0.99, 0.999],
+    "gamma": [0.999],
+    # "lr": [1e-2, 1e-3, 5e-3, 5e-4],
+    "lr": [5e-4],
+    "loss_fn": [nn.SmoothL1Loss],
+    # "loss_fn": [nn.MSELoss],
+    "use_profit": [True],
+    "net_hidden_dim": [320],
+    "net_hidden_layers": [2]
 }
 
 def setup_environment(symbols, start_date, end_date, window_size, initial_balance) -> CustomStocksEnv:
@@ -79,6 +84,10 @@ def save_train_metrics(trains, labels, save_path):
         fig.savefig(save_path/f"{metric}.png")
         plt.show(block=False)
 
+        # salva tutti i dati
+        df = pd.DataFrame(trains, index=labels)
+        df.to_json(save_path / "data.json")
+
 def save_eval_metrics(evals, labels, save_path):
     metrics = ['total_reward', 'roi', 'total_profit', 'deal_actions_num', 'deal_errors_num', 'drawdown']
     
@@ -107,18 +116,13 @@ def save_eval_metrics(evals, labels, save_path):
         ax.legend()
         fig.savefig(save_path/f"{metric}.png")
 
+    # Salva tutti i dati
+    df = pd.DataFrame(evals, index=labels)
+    df.to_json(save_path / "data.json") 
 
-def main():
-    argparser = argparse.ArgumentParser()
-    # argparser.add_argument("--model", type=str, choices=["DQN", "QL"], default="DQN", help="Modello da utilizzare (DQN/QL)")
-    argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
-    argparser.add_argument("--initial-balance", type=int, default=10000, help="Saldo iniziale")
-    argparser.add_argument("--show-plots", help="Mostra i plot generati", action="store_true")
-    argparser.add_argument("--output-folder", type=str, default=None, help="Cartella di output per i risultati")
-    args = argparser.parse_args()
-    
+def main(args):
     # symbols = ["IBM", "NVDA", "AAPL", "GOOGL", "AMZN", "MSFT", "INTC", "ORCL", "CSCO", "ADBE", "QCOM", "META"]
-    symbols = ["TNDM", "JBHT", "TENB", "GSHD", "BRKR", "SNDR", "SNAP", "WBA", "PII", "APA", "SWTX"]
+    symbols = ["AAPL", "NVDA", "TSLA", "RIOT", "UBER", "AMZN", "UAA", "INTC", "F", "GME", "QUBT", "TNDM", "JBHT", "TENB", "GSHD", "BRKR", "SNDR", "SNAP", "WBA", "PII", "APA", "SWTX"]
     window_size = 30
     initial_balance = args.initial_balance
     training_episodes = args.episodes
@@ -126,6 +130,9 @@ def main():
 
     # Crea il percorso per il salvataggio dei risultati   
     output_folder = args.output_folder or '-'.join(testing_parameters)
+    if args.tags:
+        output_folder = output_folder + '__' + '-'.join(args.tags)
+
     folder = Path(f"./tuning/{output_folder}")
     training_folder = (folder/'training')
     models_folder = (folder/'models')
@@ -135,6 +142,12 @@ def main():
     training_folder.mkdir(parents=True, exist_ok=True)
     models_folder.mkdir(parents=True, exist_ok=True)
     testing_folder.mkdir(parents=True, exist_ok=True)
+
+    with open(folder/"parameters.txt", "w") as fp:
+        fp.write(f"Episodes: {training_episodes}\n")
+        for k, v in PARAMETERS.items():
+            vv = v[0] if len(v) == 1 else str(v)
+            fp.write(f"{k}: {vv}\n")
 
     print("Inizializzazione dell'ambiente di training...")
     env = setup_environment(
@@ -191,7 +204,7 @@ def main():
         agent.set_render_mode("off")
 
         tqdm.write(f"Addestramento per {training_episodes} episodi...")
-        info, per_step_metrics, per_episode_metrics = agent.train_agent(env, training_episodes, seed=True)
+        info, per_step_metrics, per_episode_metrics = agent.train_agent(env, training_episodes, seed=42)
         per_train_metrics.append(per_episode_metrics)
 
         # Chiude l'ambiente di training
@@ -199,7 +212,7 @@ def main():
 
         tqdm.write("Valutazione agente...")
         metrics = ['total_reward', 'roi', 'total_profit', 'deal_actions_num', 'deal_errors_num', 'drawdown']
-        info, history = agent.evaluate_agent(eval_env)
+        info, history = agent.evaluate_agent(eval_env, seed=42)
         eval_data = dict(filter(lambda item: item[0] in metrics, history.items()))
         per_eval_metrics.append(eval_data)
 
@@ -226,4 +239,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("--episodes", type=int, default=200, help="Numero di episodi per il training")
+    argparser.add_argument("--initial-balance", type=int, default=10000, help="Saldo iniziale")
+    argparser.add_argument("--show-plots", help="Mostra i plot generati", action="store_true")
+    argparser.add_argument("--output-folder", type=str, default=None, help="Cartella di output per i risultati")
+    argparser.add_argument('--tags', type=str, nargs='+', help='Tags', required=False)
+    args = argparser.parse_args()
+
+    main(args)
