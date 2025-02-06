@@ -1,3 +1,4 @@
+import os
 from typing import Literal
 from collections import defaultdict
 import numpy as np
@@ -6,7 +7,6 @@ from gym_anytrading.envs import TradingEnv
 from tqdm import tqdm
 import utils as ut
 from plots import MetricPlots
-import pandas as pd
 
 
 class QLAgent:
@@ -17,16 +17,16 @@ class QLAgent:
          action_size (int): Numero di azioni possibili.
          render_mode (Literal['step', 'episode', 'off'], opzionale): Modalità di rendering. Defaults to 'off'.
      """
-    def __init__(self, action_size, render_mode: Literal['step', 'episode', 'off']='off'):
+    def __init__(self, action_size, gamma=0.95, epsilon_decay=0.991, lr=0.001, render_mode: Literal['step', 'episode', 'off']='off'):
         
         self.action_size = action_size
         self.render_mode = render_mode
 
-        self.gamma = 0.95  
+        self.gamma = gamma
         self.epsilon = 1.0 
         self.epsilon_min = 0.01  
-        self.epsilon_decay = 0.991
-        self.learning_rate = 0.001
+        self.epsilon_decay = epsilon_decay
+        self.learning_rate = lr
         self.q_values = defaultdict(lambda: np.zeros(self.action_size))
         self._metrics_display = MetricPlots()
 
@@ -68,7 +68,7 @@ class QLAgent:
         """
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
-    def train_agent(self, env:TradingEnv, episodes, seed=False):
+    def train_agent(self, env:TradingEnv, episodes, seed=None):
         """
         Addestra l'agente attraverso interazioni con l'ambiente.
         Args:
@@ -79,18 +79,28 @@ class QLAgent:
         per_step_metrics = {
             'step_reward': [],
             'delta_p': [],
+            'drawdown': [],
         }
         
         per_episode_metrics = {
             'roi': [],
             'total_reward': [],
             'total_profit': [],
-            'wallet_value': []
+            'performance': [],
+            'loss': [],
+            'epsilon': [],
+            'deal_actions_num': [],
+            'deal_errors_num': [],
+            'drawdown_mean': [],
         }
+
+        if seed is not None:
+            self.seed_everything(seed)
 
         print(f"Inizio addestramento per {episodes} episodi.")
         for episode in tqdm(range(1, episodes + 1), desc="Training Progress", unit="episode"):
             state, info = env.reset(seed=episode if seed else None)
+            max_possible_profit = env.max_possible_profit()
             prices = state[0]
             profit = state[-1]
             state = ut.state_formatter(prices)
@@ -106,6 +116,7 @@ class QLAgent:
             done = False
 
             while not done:
+                total_loss, loss_count = 0, 0.
                 action = self.act(state)
                 next_state, reward, terminated, truncated, info = env.step(action)
                 next_prices = next_state[0]
@@ -114,6 +125,9 @@ class QLAgent:
                 next_state = np.concatenate((next_state, [next_profit]), axis=0)
                 next_state = self._discretize(next_state, info["max_price"], info["min_price"])
                 td_error = self.update(state, action, reward, terminated, next_state)
+                total_loss += td_error
+                loss_count += 1
+
                 done = terminated or truncated
                 state = next_state
                 if self.render_mode == 'step':
@@ -129,8 +143,21 @@ class QLAgent:
             if self.render_mode == 'episode':
                 env.render_all(f"Episode {episode}")
 
+            # Salva le metriche per l'episodio corrente
+            average_loss = total_loss / loss_count if loss_count > 0 else 0
             for metric in per_episode_metrics.keys():
-                per_episode_metrics[metric].append(info[metric])
+                if metric in info.keys():
+                    per_episode_metrics[metric].append(info[metric])
+            
+            for metric in per_episode_metrics.keys():
+                if metric in info.keys():
+                    per_episode_metrics[metric].append(info[metric])
+            
+            per_episode_metrics['performance'].append((info['total_profit'] / max_possible_profit) * 100)
+            per_episode_metrics['loss'].append(average_loss)
+            per_episode_metrics['epsilon'] = self.epsilon
+            per_episode_metrics['drawdown_mean'].append(np.mean(per_step_metrics['drawdown']))
+
             if self.render_mode == 'episode':
                 self._metrics_display.plot_metrics(**per_step_metrics)
                 self._metrics_display.plot_metrics(**per_episode_metrics)
@@ -143,23 +170,22 @@ class QLAgent:
 
             tqdm.write(f"Episode {episode}/{episodes} # Dataset: {info['asset']} # ROI: {roi:.2f}% # Total Profit: {total_profit:.2f} # Wallet value: {wallet_value:.2f} # Error: {td_error:.4f} # Epsilon: {self.epsilon:.4f}")
 
-        if self.render_mode == 'off':
-            self._metrics_display.plot_metrics(**per_step_metrics)
-            self._metrics_display.plot_metrics(**per_episode_metrics, show=True)
-            pass
+        return info, per_step_metrics, per_episode_metrics
 
-        print("Addestramento completato.")
-
-    def evaluate_agent(self, env: TradingEnv):
+    def evaluate_agent(self, env:TradingEnv, seed=None):
         """
         Valuta le prestazioni dell'agente sull'ambiente.
         Args:
             env (TradingEnv): Ambiente di trading.
+            seed (int, opzionale): Seed per la riproducibilità. Defaults to None.
         Returns:
             tuple: Contiene il profitto totale, la ricompensa totale e altre informazioni.
         """
+        if seed is not None:
+            self.seed_everything(seed)
         self.epsilon = 0
         state, info = env.reset()
+        max_possible_profit = env.max_possible_profit()
         prices = state[0]
         profit = state[-1]
         state = ut.state_formatter(prices)
@@ -183,20 +209,11 @@ class QLAgent:
             if self.render_mode == 'step':
                 env.render()
 
-        history = pd.DataFrame(env.history)
-        history.to_csv("csv/history.csv", index=False)  
-        
-        print("___ Valutazione ___")
-        print(f"Total Profit: {info['total_profit']:.2f} - Mean: {np.mean(history['total_profit']):.2f} - Std: {np.std(history['total_profit']):.2f}")
-        print(f"Wallet value: {info['wallet_value']:.2f} - Mean: {np.mean(history['wallet_value']):.2f} - Std: {np.std(history['wallet_value']):.2f}")
-        print(f"Total Reward: {info['total_reward']:.2f} - Mean: {np.mean(history['total_reward']):.2f} - Std: {np.std(history['total_reward']):.2f}")
-        print(f"ROI: {info['roi']:.2f}% - Mean: {np.mean(history['roi']):.2f}% - Std: {np.std(history['roi']):.2f}%")
-
 
         if self.render_mode == 'episode':
             env.render_all()
 
-        return info['total_profit'], info['total_reward'], info
+        return {**info, 'performance': (info['total_profit']/max_possible_profit) * 100}, env.history
 
     def _discretize(self, state, max_price, min_price):
         """
@@ -225,3 +242,13 @@ class QLAgent:
         """
         self.render_mode = render_mode
    
+    def seed_everything(self, seed):
+        """
+        Imposta i seed per la riproducibilità.
+        Args:
+            seed (int): Seed per la riproducibilità.
+        """
+
+        random.seed(seed)
+        np.random.seed(seed)
+        os.environ['PYTHONHASHSEED'] = str(seed)
