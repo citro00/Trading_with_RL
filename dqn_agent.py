@@ -337,4 +337,4 @@ class DQNAgent:
         torch.save(self.model.state_dict(), f"{folder}{os.path.sep}{file_name}")
 
     def load_model(self, path):
-        self.model.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
+        self.model.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage, weights_only=True))

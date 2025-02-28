@@ -14,14 +14,19 @@ class QLAgent:
      Agente Q-Learning per il trading.
      Utilizza una tabella Q per apprendere la migliore politica di trading attraverso interazioni con l'ambiente.
      Args:
-         action_size (int): Numero di azioni possibili.
-         render_mode (Literal['step', 'episode', 'off'], opzionale): Modalità di rendering. Defaults to 'off'.
+            action_size (int): Numero di azioni possibili.
+            k (int, opzionale): Numero di bin per discretizzare lo stato. Defaults to 8.
+            gamma (float, opzionale): Fattore di sconto. Defaults to 0.95.
+            epsilon_decay (float, opzionale): Fattore di decadimento di epsilon. Defaults to 0.991.
+            lr (float, opzionale): Tasso di apprendimento. Defaults to 0.001.
+            render_mode (Literal['step', 'episode', 'off'], opzionale): Modalità di rendering. Defaults to 'off'.
      """
-    def __init__(self, action_size, gamma=0.95, epsilon_decay=0.991, lr=0.001, render_mode: Literal['step', 'episode', 'off']='off'):
+    def __init__(self, action_size, k=8, gamma=0.95, epsilon_decay=0.991, lr=0.001, render_mode: Literal['step', 'episode', 'off']='off'):
         
         self.action_size = action_size
         self.render_mode = render_mode
 
+        self.k = k
         self.gamma = gamma
         self.epsilon = 1.0 
         self.epsilon_min = 0.01  
@@ -149,10 +154,6 @@ class QLAgent:
                 if metric in info.keys():
                     per_episode_metrics[metric].append(info[metric])
             
-            for metric in per_episode_metrics.keys():
-                if metric in info.keys():
-                    per_episode_metrics[metric].append(info[metric])
-            
             per_episode_metrics['performance'].append((info['total_profit'] / max_possible_profit) * 100)
             per_episode_metrics['loss'].append(average_loss)
             per_episode_metrics['epsilon'] = self.epsilon
@@ -195,7 +196,6 @@ class QLAgent:
 
         while not done:
             action = self.act(state)
-            print(f"Azione: {action}")
             next_state, reward, terminated, truncated, info = env.step(action)
             next_prices = next_state[0]
             next_profit = next_state[-1]
@@ -225,14 +225,14 @@ class QLAgent:
         Returns:
             tuple: Stato discretizzato.
         """
-        k = 5
+        k = self.k
         bins = np.linspace(min_price, max_price, k + 1)
         prices_discretized = np.digitize(state[:-1], bins, right=False)
         total_profit = state[-1]
         modulo_profit = np.mod(total_profit, k)
         if modulo_profit < 1:
             modulo_profit = 0 
-        return tuple(prices_discretized.astype(np.int64))+(modulo_profit,)
+        return tuple(prices_discretized.astype(np.int64))
     
     def set_render_mode(self, render_mode: Literal['step', 'episode', 'off']):
         """

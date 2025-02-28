@@ -5,27 +5,21 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from action import Action
 from custom_env import CustomStocksEnv
-from dqn_agent import DQNAgent
+from q_learning_agent import QLAgent
 import utils as ut
-import torch
-import torch.nn as nn
-import json
 
 # Parametri per il fine-tuning
 PARAMETERS = {
-    "batch_size": [128],
-    # "epsilon_decay": [0.9, 0.95, 0.99, 0.995, 0.999],
-    "epsilon_decay": [0.99],
+    # "epsilon_decay": [0.9, 0.95, 0.99, 0.995],
+    "epsilon_decay": [0.995],
     # "gamma": [0.9, 0.99, 0.999],
-    "gamma": [0.999],
+    "gamma": [0.9],
     # "lr": [1e-2, 1e-3, 5e-3, 5e-4],
     "lr": [5e-4],
-    "loss_fn": [nn.SmoothL1Loss],
-    # "loss_fn": [nn.MSELoss],
-    "use_profit": [True],
-    "net_hidden_dim": [320],
-    "net_hidden_layers": [2]
+    # "k": [5, 8, 10, 12, 15],
+    "k": [8],
 }
 
 def setup_environment(symbols, start_date, end_date, window_size, initial_balance) -> CustomStocksEnv:
@@ -40,7 +34,7 @@ def setup_environment(symbols, start_date, end_date, window_size, initial_balanc
         df=data,
         window_size=window_size,
         frame_bound=frame_bound,
-        normalize=True,
+        normalize=False,
         initial_balance=initial_balance
     )
     return env
@@ -122,7 +116,9 @@ def save_eval_metrics(evals, labels, save_path):
 
 def main(args):
     # symbols = ["IBM", "NVDA", "AAPL", "GOOGL", "AMZN", "MSFT", "INTC", "ORCL", "CSCO", "ADBE", "QCOM", "META"]
-    symbols = ["QUBT", "TNDM", "JBHT", "TENB", "GSHD", "BRKR", "SNDR", "SNAP", "WBA", "PII", "APA", "SWTX"]
+    symbols = ["TNDM", "JBHT", "TENB", "GSHD", "BRKR", "SNDR", "SNAP", "WBA", "PII", "APA", "SWTX"]
+    # symbols = ["AAPL", "NVDA", "TSLA", "RIOT", "UBER", "AMZN", "UAA", "INTC", "F", "GME", "QUBT", "TNDM", "JBHT", "TENB", "GSHD", "BRKR", "SNDR", "SNAP", "WBA", "PII", "APA", "SWTX"]
+
     window_size = 30
     initial_balance = args.initial_balance
     training_episodes = args.episodes
@@ -133,14 +129,12 @@ def main(args):
     if args.tags:
         output_folder = output_folder + '__' + '-'.join(args.tags)
 
-    folder = Path(f"./tuning/{output_folder}")
+    folder = Path(f"./tuning_ql/{output_folder}")
     training_folder = (folder/'training')
-    models_folder = (folder/'models')
     testing_folder = (folder/'testing')
     
     print("Creazione dei percorsi...")
     training_folder.mkdir(parents=True, exist_ok=True)
-    models_folder.mkdir(parents=True, exist_ok=True)
     testing_folder.mkdir(parents=True, exist_ok=True)
 
     with open(folder/"parameters.txt", "w") as fp:
@@ -155,7 +149,7 @@ def main(args):
         start_date="2020-01-01",
         end_date="2024-12-30",
         window_size=window_size,
-        initial_balance=initial_balance
+        initial_balance=initial_balance,
     )
     print(f"Ambiente inizializzato. Prezzi shape: {env.prices.shape}, "
           f"Signal features shape: {env.signal_features.shape}")
@@ -175,10 +169,8 @@ def main(args):
     # Parametri dell'agente
     action_size = env.action_space.n
     state_size = env.observation_space.shape[0] * env.observation_space.shape[1]
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    print(f"State size: {state_size}, Action size: {action_size}, "
-            "Device: {device}")
+    print(f"State size: {state_size}, Action size: {action_size}")
 
     print("Avvio del processo di ricerca dei parametri...")
     per_train_metrics = []
@@ -194,10 +186,8 @@ def main(args):
         # Inizializza agente
         tqdm.write(f"Parametri: {params}")
         tqdm.write("Inizializzazione dell'agente...")
-        agent = DQNAgent(
-            state_size=state_size,
+        agent = QLAgent(
             action_size=action_size,
-            device=device,
             **params
         )
         # Disattiva il rendering delle metriche e dell'ambiente
@@ -212,18 +202,31 @@ def main(args):
 
         tqdm.write("Valutazione agente...")
         metrics = ['total_reward', 'roi', 'total_profit', 'deal_actions_num', 'deal_errors_num', 'drawdown']
-        info, history = agent.evaluate_agent(eval_env, seed=42)
+        info, history = agent.evaluate_agent(eval_env)
         eval_data = dict(filter(lambda item: item[0] in metrics, history.items()))
         per_eval_metrics.append(eval_data)
+
+        trade_num = 0
+        trading_distances = []
+        last_buy_tick = None
+        for item in history['action']:
+            if item is None:
+                continue
+        
+            tick, action = item
+            if action == Action.Buy:
+                last_buy_tick = tick
+            elif action == Action.Sell:
+                trade_num += 1
+                trading_distances.append(tick - last_buy_tick)
+
+        print(f"{trade_num} trades executed. Trading distance: Mean: {np.mean(trading_distances):.3f} - Std: {np.std(trading_distances):.3f}")
 
         # Salva l'ultimo episodio
         eval_env.render_figure(title=model_str).savefig(testing_folder/f"eval_{model_str}.png")
 
         # Chiude l'ambiente di valutazione
         eval_env.close()
-
-        # Salva il modello
-        agent.save_model(models_folder, model_str)
 
 
     # Salva le metriche
