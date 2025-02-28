@@ -1,0 +1,3 @@
+,value,avg,std
+loss_fn: <class 'torch.nn.modules.loss.SmoothL1Loss'>,0.0,0.0,0.0
+loss_fn: <class 'torch.nn.modules.loss.MSELoss'>,0.0,0.0,0.0

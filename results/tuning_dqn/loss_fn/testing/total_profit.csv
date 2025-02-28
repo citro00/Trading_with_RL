@@ -1,0 +1,3 @@
+,value,avg,std
+loss_fn: <class 'torch.nn.modules.loss.SmoothL1Loss'>,13048.077590942383,4211.476799426218,2818.6327761675852
+loss_fn: <class 'torch.nn.modules.loss.MSELoss'>,2818.9102325439453,209.4812937971937,1059.9361419521101

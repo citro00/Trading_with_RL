@@ -1,0 +1,5 @@
+Episodes: 1000
+epsilon_decay: 0.995
+gamma: [0.9, 0.99, 0.999]
+lr: 0.001
+k: 8
